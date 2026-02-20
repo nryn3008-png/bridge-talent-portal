@@ -101,6 +101,13 @@ export function TopNav({ session }: TopNavProps) {
                 {session.role}
               </span>
             </div>
+            <Link
+              href={`/talent/${session.userId}`}
+              onClick={() => setMenuOpen(false)}
+              className="block px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              Your Profile
+            </Link>
             <button
               onClick={handleLogout}
               className="w-full text-left px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

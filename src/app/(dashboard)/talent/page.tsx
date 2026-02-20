@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth/session'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
-import { getCurrentUser, getBridgeMemberIds } from '@/lib/bridge-api/users'
+import { getBridgeMemberIds } from '@/lib/bridge-api/users'
 import { TalentDirectoryClient } from '@/components/talent/talent-directory-client'
 import { ROLE_CATEGORIES, buildPositionFilter } from '@/lib/role-categories'
 import type { BridgeMember } from '@/lib/bridge-api/types'
@@ -113,35 +113,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
     }
   }
 
-  // ── Get current user's full profile for highlighted card ──
-  let currentUser: BridgeMember | null = null
-  if (session.bridgeJwt && page === 1 && !query && !roleFilter) {
-    try {
-      const me = await getCurrentUser(session.bridgeJwt)
-      currentUser = {
-        id: me.id,
-        sid: me.sid ?? 0,
-        first_name: me.first_name,
-        last_name: me.last_name,
-        email: me.email,
-        profile_pic_url: me.profile_pic_url,
-        position: me.global_profile?.position,
-        company: me.global_profile?.company,
-        location: me.global_profile?.location,
-        bio: me.global_profile?.bio,
-        linkedin_profile_url: me.global_profile?.linkedin_profile_url,
-        is_super_connector: me.global_profile?.is_super_connector,
-        icp_roles: me.icp?.roles,
-        icp_industries: me.icp?.industries,
-      }
-    } catch {
-      // Silently skip — current user card is optional
-    }
-  }
-
   const totalPages = Math.ceil(totalCount / perPage)
-  const currentUserInPage = members.some((m) => m.id === currentUser?.id)
-  const showCurrentUser = page === 1 && currentUser && !currentUserInPage && !query && !roleFilter
 
   // Build URL helper for pagination links
   const buildUrl = (p: number) => {
@@ -175,7 +147,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
 
         <TalentDirectoryClient
           members={members}
-          currentUser={showCurrentUser ? currentUser : null}
           totalCount={totalCount}
           page={page}
           totalPages={totalPages}

@@ -13,7 +13,6 @@ interface RoleCategoryInfo {
 
 interface TalentDirectoryClientProps {
   members: BridgeMember[]
-  currentUser?: BridgeMember | null
   totalCount: number
   page: number
   totalPages: number
@@ -24,7 +23,6 @@ interface TalentDirectoryClientProps {
 
 export function TalentDirectoryClient({
   members,
-  currentUser,
   totalCount,
   query,
   activeRole,
@@ -102,18 +100,6 @@ export function TalentDirectoryClient({
           >
             Clear all filters
           </Link>
-        </div>
-      )}
-
-      {/* Current user's card highlighted at top of page 1 */}
-      {currentUser && (
-        <div className="mb-6">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
-            Your profile
-          </p>
-          <div className="max-w-sm">
-            <TalentCard member={currentUser} highlighted />
-          </div>
         </div>
       )}
 
