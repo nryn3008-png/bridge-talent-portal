@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { getCurrentUser, getBridgeMemberIds } from '@/lib/bridge-api/users'
 import { TalentDirectoryClient } from '@/components/talent/talent-directory-client'
+import { ROLE_CATEGORIES, buildPositionFilter } from '@/lib/role-categories'
 import type { BridgeMember } from '@/lib/bridge-api/types'
 
 interface PageProps {
@@ -18,6 +19,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
 
   const params = await searchParams
   const query = params.q?.toLowerCase() || ''
+  const roleFilter = params.role || ''
   const page = Math.max(1, parseInt(params.page || '1'))
   const perPage = 24
 
@@ -28,19 +30,32 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
   // ── Try reading from DB (Supabase) first ──
   if (prisma) {
     try {
-      // Build where clause — search by name, company, position
+      // Build where clause — combine search + role filter
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const whereClause: any = query
-        ? {
-            OR: [
-              { firstName: { contains: query, mode: 'insensitive' } },
-              { lastName: { contains: query, mode: 'insensitive' } },
-              { company: { contains: query, mode: 'insensitive' } },
-              { position: { contains: query, mode: 'insensitive' } },
-              { email: { contains: query, mode: 'insensitive' } },
-            ],
-          }
-        : {}
+      const conditions: any[] = []
+
+      // Text search
+      if (query) {
+        conditions.push({
+          OR: [
+            { firstName: { contains: query, mode: 'insensitive' } },
+            { lastName: { contains: query, mode: 'insensitive' } },
+            { company: { contains: query, mode: 'insensitive' } },
+            { position: { contains: query, mode: 'insensitive' } },
+            { email: { contains: query, mode: 'insensitive' } },
+          ],
+        })
+      }
+
+      // Role category filter
+      if (roleFilter) {
+        const positionFilters = buildPositionFilter(roleFilter)
+        if (positionFilters) {
+          conditions.push({ OR: positionFilters })
+        }
+      }
+
+      const whereClause = conditions.length > 0 ? { AND: conditions } : {}
 
       const [count, profiles] = await Promise.all([
         prisma.talentProfile.count({ where: whereClause }),
@@ -81,7 +96,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
   }
 
   // ── Fallback: if DB is empty or unavailable, use Bridge API for UUIDs ──
-  if (totalCount === 0) {
+  if (totalCount === 0 && !roleFilter) {
     try {
       const data = await getBridgeMemberIds()
       const memberIds = data.list ?? []
@@ -100,7 +115,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
 
   // ── Get current user's full profile for highlighted card ──
   let currentUser: BridgeMember | null = null
-  if (session.bridgeJwt && page === 1 && !query) {
+  if (session.bridgeJwt && page === 1 && !query && !roleFilter) {
     try {
       const me = await getCurrentUser(session.bridgeJwt)
       currentUser = {
@@ -126,16 +141,24 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
 
   const totalPages = Math.ceil(totalCount / perPage)
   const currentUserInPage = members.some((m) => m.id === currentUser?.id)
-  const showCurrentUser = page === 1 && currentUser && !currentUserInPage && !query
+  const showCurrentUser = page === 1 && currentUser && !currentUserInPage && !query && !roleFilter
+
+  // Build URL helper for pagination links
+  const buildUrl = (p: number) => {
+    const parts = [`/talent?page=${p}`]
+    if (query) parts.push(`q=${encodeURIComponent(query)}`)
+    if (roleFilter) parts.push(`role=${encodeURIComponent(roleFilter)}`)
+    return parts.join('&')
+  }
 
   return (
     <div className="p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Talent Directory</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {totalCount > 0
-              ? `${totalCount.toLocaleString()} members in the Bridge network`
+              ? `${totalCount.toLocaleString()} members${roleFilter ? ` in ${ROLE_CATEGORIES.find((c) => c.id === roleFilter)?.label ?? roleFilter}` : ' in the Bridge network'}`
               : 'Vetted professionals in the Bridge network'}
           </p>
         </div>
@@ -157,6 +180,8 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
           page={page}
           totalPages={totalPages}
           query={query}
+          activeRole={roleFilter}
+          roleCategories={ROLE_CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
         />
 
         {/* Pagination */}
@@ -164,10 +189,10 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
           <div className="flex items-center justify-center gap-3 mt-8">
             {page > 1 && (
               <a
-                href={`/talent?page=${page - 1}${query ? `&q=${encodeURIComponent(query)}` : ''}`}
+                href={buildUrl(page - 1)}
                 className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
               >
-                ← Previous
+                Previous
               </a>
             )}
             <span className="text-sm text-muted-foreground">
@@ -175,10 +200,10 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
             </span>
             {page < totalPages && (
               <a
-                href={`/talent?page=${page + 1}${query ? `&q=${encodeURIComponent(query)}` : ''}`}
+                href={buildUrl(page + 1)}
                 className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
               >
-                Next →
+                Next
               </a>
             )}
           </div>
