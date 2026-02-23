@@ -271,7 +271,7 @@ JWT_SESSION_SECRET=<random-string>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NODE_ENV=development
 CRON_SECRET=<random-string-for-cron-auth>
-PORTFOLIO_VC_DOMAINS=techstars.com,angelinvest.ventures,orangedao.xyz
+PORTFOLIO_VC_DOMAINS=brdg.app,techstars.com,angelinvest.ventures,orangedao.xyz
 
 # .env (Prisma CLI only — NEVER committed)
 DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
