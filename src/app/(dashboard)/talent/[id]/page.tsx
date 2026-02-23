@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
-import { getUserById } from '@/lib/bridge-api/users'
+import { getContactById } from '@/lib/bridge-api/users'
+import { prisma } from '@/lib/db/prisma'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,24 +16,85 @@ interface PageProps {
 export default async function TalentProfilePage({ params }: PageProps) {
   const session = await getSession()
 
-  if (!session || !['vc', 'company', 'admin'].includes(session.role)) {
-    redirect('/')
+  if (!session) {
+    redirect('/login')
   }
 
   const { id } = await params
 
-  let user
-  try {
-    user = await getUserById(id, session.bridgeJwt)
-  } catch {
-    notFound()
+  // Try DB first for synced profile data
+  let dbProfile: {
+    firstName: string | null
+    lastName: string | null
+    email: string | null
+    company: string | null
+    position: string | null
+    location: string | null
+    bio: string | null
+    profilePicUrl: string | null
+    linkedinUrl: string | null
+    isSuperConnector: boolean
+    openToRoles: string[]
+    skills: string[]
+  } | null = null
+
+  if (prisma) {
+    try {
+      dbProfile = await prisma.talentProfile.findUnique({
+        where: { bridgeUserId: id },
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+          company: true,
+          position: true,
+          location: true,
+          bio: true,
+          profilePicUrl: true,
+          linkedinUrl: true,
+          isSuperConnector: true,
+          openToRoles: true,
+          skills: true,
+        },
+      })
+    } catch (err) {
+      console.warn('[talent/[id]] DB lookup failed:', err instanceof Error ? err.message : err)
+    }
   }
 
-  // Respect ICP public flag
-  const icp = user.icp?.public ? user.icp : null
+  // Fetch full contact data from Bridge API
+  // Uses GET /api/v1/contacts/:id which works for any member
+  // (unlike GET /api/v1/users/:id which returns 403 for non-self)
+  let contact
+  try {
+    contact = await getContactById(id)
+  } catch {
+    // If API fails but we have DB data, we can still show the profile
+    if (!dbProfile) {
+      notFound()
+    }
+  }
 
-  const name = `${user.first_name} ${user.last_name}`.trim()
-  const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
+  // Merge data: prefer API contact data, fall back to DB profile
+  const name = contact?.name
+    || `${dbProfile?.firstName ?? ''} ${dbProfile?.lastName ?? ''}`.trim()
+    || 'Network Member'
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || id[0].toUpperCase()
+  const position = contact?.position ?? dbProfile?.position ?? null
+  const company = contact?.company ?? dbProfile?.company ?? null
+  const location = contact?.location ?? dbProfile?.location ?? null
+  const bio = contact?.bio ?? dbProfile?.bio ?? null
+  const profilePicUrl = contact?.profile_pic_url ?? dbProfile?.profilePicUrl ?? null
+  const linkedinUrl = contact?.linkedin_profile_url ?? dbProfile?.linkedinUrl ?? null
+  const companyWebsite = contact?.company_website ?? null
+  const isSuperConnector = contact?.is_super_connector ?? dbProfile?.isSuperConnector ?? false
+  const icp = contact?.icp ?? null
+  const tags = contact?.tags ?? []
 
   return (
     <div className="p-6">
@@ -46,9 +108,9 @@ export default async function TalentProfilePage({ params }: PageProps) {
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex items-start gap-5">
-              {user.profile_pic_url ? (
+              {profilePicUrl ? (
                 <Image
-                  src={user.profile_pic_url}
+                  src={profilePicUrl}
                   alt={name}
                   width={72}
                   height={72}
@@ -62,7 +124,7 @@ export default async function TalentProfilePage({ params }: PageProps) {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-bold">{name}</h1>
-                  {user.global_profile?.is_super_connector && (
+                  {isSuperConnector && (
                     <span
                       title="Super Connector"
                       className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200"
@@ -71,30 +133,28 @@ export default async function TalentProfilePage({ params }: PageProps) {
                     </span>
                   )}
                 </div>
-                {(user.global_profile?.position || user.global_profile?.company) && (
+                {(position || company) && (
                   <p className="text-muted-foreground mt-0.5">
-                    {[user.global_profile.position, user.global_profile.company]
-                      .filter(Boolean)
-                      .join(' at ')}
+                    {[position, company].filter(Boolean).join(' at ')}
                   </p>
                 )}
-                {user.global_profile?.location && (
-                  <p className="text-sm text-muted-foreground mt-0.5">📍 {user.global_profile.location}</p>
+                {location && (
+                  <p className="text-sm text-muted-foreground mt-0.5">📍 {location}</p>
                 )}
 
                 <div className="flex gap-2 mt-3">
-                  {user.global_profile?.linkedin_profile_url && (
+                  {linkedinUrl && (
                     <a
-                      href={user.global_profile.linkedin_profile_url}
+                      href={linkedinUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       <Button variant="outline" size="sm">LinkedIn</Button>
                     </a>
                   )}
-                  {user.global_profile?.company_website && (
+                  {companyWebsite && (
                     <a
-                      href={user.global_profile.company_website}
+                      href={companyWebsite}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -105,14 +165,14 @@ export default async function TalentProfilePage({ params }: PageProps) {
               </div>
             </div>
 
-            {user.global_profile?.bio && (
-              <p className="text-sm text-muted-foreground mt-4 leading-relaxed">{user.global_profile.bio}</p>
+            {bio && (
+              <p className="text-sm text-muted-foreground mt-4 leading-relaxed">{bio}</p>
             )}
           </CardContent>
         </Card>
 
         {/* ICP — roles and industries */}
-        {icp && (
+        {icp && (icp.roles?.length || icp.industries?.length) ? (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Background & Interests</CardTitle>
@@ -138,24 +198,24 @@ export default async function TalentProfilePage({ params }: PageProps) {
                   </div>
                 </div>
               )}
-              {icp.context && (
-                <p className="text-sm text-muted-foreground">{icp.context}</p>
+              {icp.description && (
+                <p className="text-sm text-muted-foreground">{icp.description}</p>
               )}
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
-        {/* Network Domains */}
-        {user.network_domains && user.network_domains.length > 0 && (
+        {/* Networks */}
+        {tags.length > 0 && (
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Networks</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {user.network_domains.map((nd) => (
-                  <Badge key={nd.domain} variant="outline" className="text-sm">
-                    {nd.name || nd.domain}
+                {tags.map((tag) => (
+                  <Badge key={tag.id} variant="outline" className="text-sm">
+                    {tag.name}
                   </Badge>
                 ))}
               </div>

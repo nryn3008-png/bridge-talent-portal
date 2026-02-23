@@ -41,6 +41,47 @@ export async function fetchWorkableJobs(accountSlug: string): Promise<WorkableJo
   return data.jobs ?? []
 }
 
+/**
+ * Try to discover if a company uses Workable by testing common slug patterns.
+ * Returns the working slug and jobs if found, null otherwise.
+ * Tries: domain name (e.g., "quantive" from "quantive.com"), then hyphenated variants.
+ */
+export async function tryWorkableDiscovery(
+  companyDomain: string,
+): Promise<{ slug: string; jobs: WorkableJob[] } | null> {
+  // Derive candidate slugs from the domain
+  const baseName = companyDomain.replace(/\.\w+$/, '') // "kaiahealth.com" → "kaiahealth"
+  const slugs = [
+    baseName,                              // "kaiahealth"
+    baseName.replace(/[^a-z0-9]/gi, '-'),  // handle special chars
+  ]
+  // If name looks like compound word, try splitting (e.g., "kaiahealth" → "kaia-health")
+  // Only add unique slugs
+  const uniqueSlugs = [...new Set(slugs)]
+
+  for (const slug of uniqueSlugs) {
+    try {
+      const url = `https://apply.workable.com/api/v1/widget/accounts/${slug}/`
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      })
+
+      if (response.ok) {
+        const data: WorkableWidgetResponse = await response.json()
+        const jobs = data.jobs ?? []
+        if (jobs.length > 0) {
+          return { slug, jobs }
+        }
+      }
+    } catch {
+      // Silently skip — not a Workable account
+    }
+  }
+
+  return null
+}
+
 export function mapWorkableJobToJobData(workableJob: WorkableJob, companyDomain: string) {
   const locationParts = [
     workableJob.location?.city,

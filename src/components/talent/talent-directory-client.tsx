@@ -19,6 +19,7 @@ interface TalentDirectoryClientProps {
   query?: string
   activeRole?: string
   roleCategories?: RoleCategoryInfo[]
+  companyFilter?: string
 }
 
 export function TalentDirectoryClient({
@@ -27,20 +28,23 @@ export function TalentDirectoryClient({
   query,
   activeRole,
   roleCategories,
+  companyFilter,
 }: TalentDirectoryClientProps) {
   const searchParams = useSearchParams()
 
-  // Build filter URL preserving search query
+  // Build filter URL preserving search query and company filter
   function buildFilterUrl(roleId?: string) {
     const params = new URLSearchParams()
     const q = searchParams.get('q')
     if (q) params.set('q', q)
     if (roleId) params.set('role', roleId)
+    const company = searchParams.get('company')
+    if (company) params.set('company', company)
     const qs = params.toString()
     return `/talent${qs ? `?${qs}` : ''}`
   }
 
-  if (totalCount === 0 && !activeRole && !query) {
+  if (totalCount === 0 && !activeRole && !query && !companyFilter) {
     return (
       <div className="text-center py-16 max-w-lg mx-auto">
         <h3 className="text-lg font-semibold mb-2">No network members found</h3>
@@ -57,6 +61,21 @@ export function TalentDirectoryClient({
       <div className="mb-4">
         <TalentSearchBar />
       </div>
+
+      {/* Company filter badge */}
+      {companyFilter && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-sm text-muted-foreground">Showing members at</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
+            {companyFilter}
+            <Link href="/talent" className="hover:text-primary/70 ml-0.5">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </Link>
+          </span>
+        </div>
+      )}
 
       {/* Role filter chips */}
       {roleCategories && roleCategories.length > 0 && (
@@ -88,7 +107,7 @@ export function TalentDirectoryClient({
       )}
 
       {/* Empty state for filtered results */}
-      {totalCount === 0 && (activeRole || query) && (
+      {totalCount === 0 && (activeRole || query || companyFilter) && (
         <div className="text-center py-16 max-w-lg mx-auto">
           <h3 className="text-lg font-semibold mb-2">No members match your filters</h3>
           <p className="text-sm text-muted-foreground mb-4">

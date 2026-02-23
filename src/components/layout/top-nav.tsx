@@ -37,14 +37,15 @@ export function TopNav({ session }: TopNavProps) {
   return (
     <header className="h-16 border-b bg-card flex items-center px-6 fixed top-0 left-0 right-0 z-50">
       {/* Logo */}
-      <Link href="/talent" className="flex items-center gap-2.5 flex-shrink-0">
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-          <span className="text-primary-foreground font-bold text-sm">B</span>
-        </div>
-        <div>
-          <p className="font-semibold text-sm leading-none">Bridge</p>
-          <p className="text-xs text-muted-foreground leading-none mt-0.5">Talent Network</p>
-        </div>
+      <Link href="/talent" className="flex items-center flex-shrink-0">
+        <Image
+          src="/logos/bridge-logo.svg"
+          alt="Bridge"
+          width={143}
+          height={25}
+          className="h-6 w-auto"
+          priority
+        />
       </Link>
 
       <div className="flex-1" />
@@ -61,6 +62,12 @@ export function TopNav({ session }: TopNavProps) {
         className="hidden sm:flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mr-4"
       >
         Jobs
+      </Link>
+      <Link
+        href="/portfolio"
+        className="hidden sm:flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mr-4"
+      >
+        Portfolio
       </Link>
 
       {/* User menu */}

@@ -51,6 +51,7 @@ model TalentProfile {
   talentPoolMembers TalentPoolMember[]
 
   @@index([talentStatus], map: "idx_talent_profiles_status")
+  @@index([company], map: "idx_talent_profiles_company")
   @@map("talent_profiles")
 }
 
