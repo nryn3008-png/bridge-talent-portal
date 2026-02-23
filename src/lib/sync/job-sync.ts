@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { getWorkableConfigs } from './ats-config'
-import { fetchWorkableJobs, mapWorkableJobToJobData, tryWorkableDiscovery, WorkableJob } from './workable-client'
+import { fetchWorkableJobs, mapWorkableJobToJobData } from './workable-client'
+import { discoverAtsJobs, type AtsProvider, type MappedJobData } from './ats-discovery'
 
 interface JobSyncResult {
   created: number
@@ -8,31 +9,31 @@ interface JobSyncResult {
   deactivated: number
   discovered: number
   errors: number
-  details: Array<{ company: string; created: number; updated: number; deactivated: number; error?: string }>
+  details: Array<{ company: string; provider?: string; created: number; updated: number; deactivated: number; error?: string }>
 }
 
 /**
- * Sync Workable jobs for a single company domain.
- * Returns per-company result stats.
+ * Sync pre-mapped ATS jobs for a single company domain (works with any ATS provider).
+ * Accepts already-mapped job data from any provider's mapper function.
  */
-async function syncWorkableJobsForCompany(
+async function syncAtsJobsForCompany(
   companyDomain: string,
-  workableJobs: WorkableJob[],
+  source: AtsProvider,
+  mappedJobs: MappedJobData[],
 ): Promise<{ created: number; updated: number; deactivated: number }> {
   if (!prisma) throw new Error('Database not available')
 
   const stats = { created: 0, updated: 0, deactivated: 0 }
 
-  // Get existing active jobs for this company from Workable
+  // Get existing active jobs for this company + source
   const existingJobs = await prisma.job.findMany({
-    where: { companyDomain, source: 'workable', status: 'active' },
+    where: { companyDomain, source, status: 'active' },
     select: { id: true, externalId: true },
   })
-  const freshExternalIds = new Set(workableJobs.map((j) => `workable:${j.shortcode}`))
+  const freshExternalIds = new Set(mappedJobs.map((j) => j.externalId))
 
   // Upsert each job
-  for (const wJob of workableJobs) {
-    const data = mapWorkableJobToJobData(wJob, companyDomain)
+  for (const data of mappedJobs) {
     const existing = await prisma.job.findUnique({ where: { externalId: data.externalId } })
 
     if (existing) {
@@ -40,9 +41,11 @@ async function syncWorkableJobsForCompany(
         where: { externalId: data.externalId },
         data: {
           title: data.title,
+          description: data.description,
           department: data.department,
           location: data.location,
           workType: data.workType,
+          employmentType: data.employmentType,
           applyUrl: data.applyUrl,
           status: 'active',
         },
@@ -54,7 +57,7 @@ async function syncWorkableJobsForCompany(
     }
   }
 
-  // Deactivate jobs that no longer appear on Workable
+  // Deactivate jobs that no longer appear in source
   for (const existingJob of existingJobs) {
     if (existingJob.externalId && !freshExternalIds.has(existingJob.externalId)) {
       await prisma.job.update({
@@ -84,7 +87,8 @@ export async function syncJobsFromAts(): Promise<JobSyncResult> {
       const workableJobs = await fetchWorkableJobs(config.accountSlug!)
       console.log(`[job-sync] ${config.companyName}: ${workableJobs.length} jobs from Workable`)
 
-      const stats = await syncWorkableJobsForCompany(config.companyDomain, workableJobs)
+      const mappedJobs: MappedJobData[] = workableJobs.map((j) => mapWorkableJobToJobData(j, config.companyDomain))
+      const stats = await syncAtsJobsForCompany(config.companyDomain, 'workable', mappedJobs)
       companyResult.created = stats.created
       companyResult.updated = stats.updated
       companyResult.deactivated = stats.deactivated
@@ -120,8 +124,9 @@ export async function syncJobsFromAts(): Promise<JobSyncResult> {
 }
 
 /**
- * Auto-discover Workable accounts from portfolio company domains and sync their jobs.
- * Processes companies in batches of 5 to avoid overwhelming Workable's API.
+ * Auto-discover ATS accounts (Workable, Greenhouse, Lever, Ashby) from portfolio
+ * company domains and sync their jobs.
+ * Processes companies in batches of 3 to respect rate limits (especially Lever's 2 req/sec).
  */
 export async function syncJobsFromPortfolioCompanies(
   companyDomains: string[],
@@ -134,33 +139,33 @@ export async function syncJobsFromPortfolioCompanies(
   const staticDomains = new Set(getWorkableConfigs().map((c) => c.companyDomain))
   const domainsToCheck = companyDomains.filter((d) => !staticDomains.has(d))
 
-  console.log(`[portfolio-job-sync] Checking ${domainsToCheck.length} portfolio companies for Workable accounts...`)
+  console.log(`[portfolio-job-sync] Checking ${domainsToCheck.length} portfolio companies across Workable, Greenhouse, Lever, Ashby...`)
 
-  // Process in batches of 5
-  const batchSize = 5
+  // Process in batches of 3 (each domain probes 4 APIs, so 3×4 = 12 concurrent requests)
+  const batchSize = 3
   for (let i = 0; i < domainsToCheck.length; i += batchSize) {
     const batch = domainsToCheck.slice(i, i + batchSize)
 
     const results = await Promise.allSettled(
       batch.map(async (domain) => {
-        const discovery = await tryWorkableDiscovery(domain)
+        const discovery = await discoverAtsJobs(domain)
         if (!discovery) return null
 
-        console.log(`[portfolio-job-sync] Discovered Workable for ${domain} (slug: ${discovery.slug}, ${discovery.jobs.length} jobs)`)
+        console.log(`[portfolio-job-sync] Discovered ${discovery.provider} for ${domain} (slug: ${discovery.slug}, ${discovery.jobCount} jobs)`)
         result.discovered++
 
-        const stats = await syncWorkableJobsForCompany(domain, discovery.jobs)
-        return { domain, ...stats }
+        const stats = await syncAtsJobsForCompany(domain, discovery.provider, discovery.mappedJobs)
+        return { domain, provider: discovery.provider, ...stats }
       }),
     )
 
     for (const r of results) {
       if (r.status === 'fulfilled' && r.value) {
-        const { domain, created, updated, deactivated } = r.value
+        const { domain, provider, created, updated, deactivated } = r.value
         result.created += created
         result.updated += updated
         result.deactivated += deactivated
-        result.details.push({ company: domain, created, updated, deactivated })
+        result.details.push({ company: domain, provider, created, updated, deactivated })
       } else if (r.status === 'rejected') {
         result.errors++
         const message = r.reason instanceof Error ? r.reason.message : String(r.reason)
@@ -183,6 +188,6 @@ export async function syncJobsFromPortfolioCompanies(
     },
   })
 
-  console.log(`[portfolio-job-sync] Complete: ${result.discovered} Workable accounts found, ${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated`)
+  console.log(`[portfolio-job-sync] Complete: ${result.discovered} ATS accounts found, ${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated`)
   return result
 }

@@ -2,8 +2,8 @@
 // Maps company domains to their Applicant Tracking System providers
 
 export interface AtsConfig {
-  provider: 'workable' | 'manual_only'
-  accountSlug?: string   // Workable account slug for widget API
+  provider: 'workable' | 'greenhouse' | 'lever' | 'ashby' | 'manual_only'
+  accountSlug?: string   // ATS account slug for public API (Workable, Greenhouse, Lever, or Ashby)
   companyName: string
   companyDomain: string
 }

@@ -11,8 +11,8 @@
 3. **Never create seed files with fake users/jobs.** The talent directory is populated exclusively from Bridge API data via bulk sync.
 4. **If you need test data, fetch it from the real Bridge API** using the development API key.
 5. **Environment variables are in `.env.local`** — never commit this file. Always read from `process.env`.
-6. **Bridge API + Workable widget API are the only data sources.** Do NOT integrate any external ATS APIs (Greenhouse, Lever, Ashby) beyond Workable's public widget. Do NOT use any third-party data providers.
-7. **No external API keys needed** — only BRIDGE_API_KEY. Workable widget API is public (no auth).
+6. **Bridge API + public ATS APIs are the data sources.** We integrate Workable, Greenhouse, Lever, and Ashby public job board APIs (all free, no auth). Do NOT use any third-party data providers beyond these.
+7. **No external API keys needed** — only BRIDGE_API_KEY. All ATS APIs (Workable, Greenhouse, Lever, Ashby) are public/unauthenticated.
 
 ---
 
