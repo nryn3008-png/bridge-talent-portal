@@ -28,6 +28,7 @@ interface JobCardJob {
   salaryMax: number | null
   showSalary: boolean
   skillsRequired: string[]
+  source?: string
   createdAt: Date
 }
 
@@ -136,6 +137,11 @@ export function JobCard({ job, matchScore, connectionsCount, showApplyButton = t
           {job.experienceLevel && (
             <Badge variant="outline" className="text-xs capitalize">
               {job.experienceLevel}
+            </Badge>
+          )}
+          {job.source && job.source !== 'manual' && (
+            <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+              via {job.source.charAt(0).toUpperCase() + job.source.slice(1)}
             </Badge>
           )}
         </div>

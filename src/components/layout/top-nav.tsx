@@ -49,12 +49,18 @@ export function TopNav({ session }: TopNavProps) {
 
       <div className="flex-1" />
 
-      {/* Nav link */}
+      {/* Nav links */}
       <Link
         href="/talent"
         className="hidden sm:flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mr-4"
       >
         Talent Directory
+      </Link>
+      <Link
+        href="/jobs"
+        className="hidden sm:flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mr-4"
+      >
+        Jobs
       </Link>
 
       {/* User menu */}

@@ -11,27 +11,29 @@
 3. **Never create seed files with fake users/jobs.** The talent directory is populated exclusively from Bridge API data via bulk sync.
 4. **If you need test data, fetch it from the real Bridge API** using the development API key.
 5. **Environment variables are in `.env.local`** — never commit this file. Always read from `process.env`.
-6. **Bridge API is the ONLY data source.** Do NOT integrate any external ATS APIs (Greenhouse, Lever, Ashby), do NOT build any job scraping pipelines, do NOT use any third-party data providers.
-7. **No external API keys needed** — only BRIDGE_API_KEY.
+6. **Bridge API + Workable widget API are the only data sources.** Do NOT integrate any external ATS APIs (Greenhouse, Lever, Ashby) beyond Workable's public widget. Do NOT use any third-party data providers.
+7. **No external API keys needed** — only BRIDGE_API_KEY. Workable widget API is public (no auth).
 
 ---
 
 ## Current State (MVP)
 
-The app is a **Talent Directory MVP** — a single-purpose directory of 21,720+ Bridge network members with real profile data. No job board, no introductions, no other features yet.
+The app has two main features: a **Talent Directory** (21,720+ Bridge members) and a **Job Board** (sourced from portfolio company ATS systems + manual posting).
 
 ### What's Built
-- **Talent Directory** (`/talent`) — Searchable, paginated directory of all Bridge members
+- **Talent Directory** (`/talent`) — Searchable, paginated directory of all Bridge members with role category filters
 - **Profile Detail Pages** (`/talent/:id`) — Individual member profiles
-- **Top-nav only layout** — No sidebar; user dropdown menu in top nav with sign-out
+- **Job Board** (`/jobs`) — Searchable, filterable job listings from portfolio companies + manual posts
+- **Job Detail Pages** (`/jobs/:id`) — Full job details with apply button
+- **Job Posting** (`/jobs/post`) — Manual job posting form (company/vc/admin only)
+- **Job Sync from Workable** — Automated sync of jobs from portfolio companies using Workable's public widget API
+- **Top-nav only layout** — No sidebar; nav links for Talent Directory + Jobs; user dropdown with profile link + sign-out
 - **Bridge JWT SSO** — Login via Bridge API key (dev) or JWT
-- **Supabase PostgreSQL** — 21,720 profiles stored with real data (names, companies, positions, bios, photos)
+- **Supabase PostgreSQL** — 21,720 profiles + jobs stored with real data
 - **Bulk sync** — Fetches all profiles from Bridge API via `GET /contacts/:id`
 - **Search** — By name, company, position, email across all profiles
 
 ### What's NOT Built Yet
-- Job board / job posting
-- Applications / one-click apply
 - Introductions / warm referrals
 - Endorsements, referral tracking
 - Talent pools, events, messaging
@@ -40,14 +42,17 @@ The app is a **Talent Directory MVP** — a single-purpose directory of 21,720+ 
 ### Layout
 - **Top nav only** — no sidebar navigation. The `Sidebar` component exists at `src/components/layout/sidebar.tsx` but is NOT used in the layout.
 - **Dashboard layout** (`src/app/(dashboard)/layout.tsx`) renders only `<TopNav>` + `<main>` (full-width content).
-- **Top nav** includes: Bridge logo, "Talent Directory" link, user avatar dropdown (name, email, role badge, sign out).
+- **Top nav** includes: Bridge logo, "Talent Directory" link, "Jobs" link, user avatar dropdown (name, email, role badge, Your Profile, sign out).
 
 ### Routing
 - `/` → redirects to `/talent`
-- `/talent` → Talent Directory (main page)
+- `/talent` → Talent Directory (main page, supports `?role=`, `?q=`, `?page=`)
 - `/talent/:id` → Profile detail
+- `/jobs` → Job Board (supports `?q=`, `?work_type=`, `?employment_type=`, `?experience_level=`, `?page=`)
+- `/jobs/:id` → Job detail with apply
+- `/jobs/post` → Post a job (company/vc/admin only)
 - `/login` → Login page
-- `/jobs`, `/jobs/:id`, `/jobs/post`, `/introductions` → all redirect to `/talent` (placeholder)
+- `/introductions` → redirects to `/talent` (placeholder)
 
 ---
 
@@ -75,7 +80,8 @@ Route prefix: `/api/v1/` — NOT `/api/current/` (specs reference the old prefix
 | `GET /api/v1/contacts/:id` | ✅ Works | Returns `{ contact: {...} }` — **full profile data** (name, email, company, position, location, bio, profile_pic_url, linkedin_profile_url, username, is_super_connector, icp, tags) |
 | `GET /api/v1/contacts/:id/connector_suggestions` | ✅ Works | Who can introduce (requires user JWT) |
 | `GET /api/v1/contacts/:id/common_contacts` | ✅ Works | Mutual connections (requires user JWT) |
-| `GET /api/v1/search/network_portfolios?domain=X` | ✅ Works | Returns `{ data: [...] }` |
+| `GET /api/v1/search/network_portfolios?domain=X` | ✅ Works | Returns `{ data: [...] }` (v1) |
+| `GET /api/v4/search/network_portfolios?domain=X` | ✅ Works | JSON:API format, returns 8 portfolio companies for brdg.app |
 | `GET /api/v1/search/embeddings/by_profile` | ✅ Works | Find similar profiles |
 | `GET /api/v1/tags/:domain/details` | ✅ Works | Returns network/org info |
 | `GET /api/v1/search/bridge_members` | ❌ 500 error | Server-side crash — do not use |
@@ -87,12 +93,21 @@ Route prefix: `/api/v1/` — NOT `/api/current/` (specs reference the old prefix
 | `GET /api/v1/search/shared_contacts` | ❌ Timeout | Too slow |
 | `GET /api/v1/search/global_contacts` | ❌ Timeout | Too slow |
 
-### Talent Directory Sync Strategy (Current)
+### Talent Directory Sync Strategy
 
 1. `GET /api/v1/contacts/bridge_members_ids` → get all 21,720 member UUIDs
 2. `GET /api/v1/contacts/:id` (per member, 10 concurrent) → fetch full profile data
 3. Upsert into `talent_profiles` table with name, company, position, bio, photo, LinkedIn, etc.
 4. Bulk sync takes ~18 minutes. Delta sync only fetches profiles where `profileSyncedAt` is null.
+
+### Job Sync Strategy
+
+1. Portfolio companies mapped in `src/lib/sync/ats-config.ts` — currently 8 companies, 1 with Workable ATS
+2. For Workable companies: `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` (public, no auth)
+3. Each job gets `externalId: "workable:{shortcode}"` for dedup via unique constraint
+4. Upsert: existing → update fields; new → create; missing from source → set `status: 'closed'`
+5. Jobs from Workable get `source: 'workable'`; manually posted jobs get `source: 'manual'`
+6. Trigger: `POST /api/sync { "type": "jobs" }` (admin/vc only)
 
 ### `/contacts/:id` Response Shape
 
@@ -134,37 +149,48 @@ bridge-talent-portal/
 │   │   ├── (dashboard)/
 │   │   │   ├── layout.tsx                 ← Top-nav only layout (no sidebar)
 │   │   │   ├── page.tsx                   ← Redirects to /talent
-│   │   │   ├── talent/page.tsx            ← Main talent directory
+│   │   │   ├── talent/page.tsx            ← Main talent directory (role filters)
 │   │   │   ├── talent/[id]/page.tsx       ← Profile detail
 │   │   │   ├── profile/page.tsx           ← User's own profile
-│   │   │   ├── jobs/page.tsx              ← Redirects to /talent
+│   │   │   ├── jobs/page.tsx              ← Job board (search, filters, pagination)
+│   │   │   ├── jobs/[id]/page.tsx         ← Job detail with apply
+│   │   │   ├── jobs/post/page.tsx         ← Post a job form (company/vc/admin)
 │   │   │   └── introductions/page.tsx     ← Redirects to /talent
 │   │   └── api/
 │   │       ├── auth/                      ← Login, logout, me
-│   │       ├── sync/route.ts              ← Bulk/delta sync trigger
+│   │       ├── sync/route.ts              ← Profile + job sync trigger
 │   │       ├── talent/                    ← Talent CRUD API
-│   │       ├── jobs/                      ← Jobs API (scaffolded)
+│   │       ├── jobs/                      ← Jobs API (list, detail, apply)
 │   │       └── ...                        ← Other API routes (scaffolded)
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── top-nav.tsx                ← Top navigation with user dropdown
+│   │   │   ├── top-nav.tsx                ← Top navigation (Talent + Jobs links, user dropdown)
 │   │   │   └── sidebar.tsx                ← NOT USED (kept for future)
 │   │   ├── talent/
 │   │   │   ├── talent-card.tsx            ← Member card component
-│   │   │   ├── talent-directory-client.tsx ← Directory grid + search
+│   │   │   ├── talent-directory-client.tsx ← Directory grid + search + role filters
 │   │   │   └── talent-search-bar.tsx      ← Search input
-│   │   ├── jobs/                          ← Job components (scaffolded)
+│   │   ├── jobs/
+│   │   │   ├── job-card.tsx               ← Job listing card (with source badge)
+│   │   │   ├── job-filters.tsx            ← Search + filter dropdowns
+│   │   │   ├── job-post-form.tsx          ← Manual job posting form
+│   │   │   └── job-apply-button.tsx       ← Apply with cover note
 │   │   └── ui/                            ← shadcn/ui primitives
 │   ├── lib/
 │   │   ├── auth/session.ts                ← JWT session management
 │   │   ├── bridge-api/
 │   │   │   ├── client.ts                  ← HTTP client (bridgeGet, bridgePost)
-│   │   │   ├── types.ts                   ← BridgeUser, BridgeContact, BridgeMember types
+│   │   │   ├── types.ts                   ← BridgeUser, BridgeContact, BridgeMember, BridgePortfolio types
 │   │   │   ├── users.ts                   ← getCurrentUser, getContactById, getBridgeMemberIds
-│   │   │   ├── search.ts                  ← Network search (some broken endpoints)
+│   │   │   ├── search.ts                  ← Network search + v4 portfolio fetching
 │   │   │   └── introductions.ts           ← Intro endpoints
 │   │   ├── db/prisma.ts                   ← Prisma client singleton
-│   │   └── sync/profile-sync.ts           ← Bulk/delta profile sync service
+│   │   ├── role-categories.ts             ← Role category filters for talent directory
+│   │   └── sync/
+│   │       ├── profile-sync.ts            ← Bulk/delta profile sync service
+│   │       ├── job-sync.ts                ← Job sync from Workable ATS
+│   │       ├── workable-client.ts         ← Workable public widget API client
+│   │       └── ats-config.ts              ← Portfolio company → ATS provider mapping
 │   └── types/prisma.ts                    ← Re-exports Prisma models
 ├── specs/                                 ← Product spec docs
 ├── technical/                             ← Architecture & API docs
@@ -191,7 +217,8 @@ bridge-talent-portal/
 
 ### Key Models
 - **TalentProfile** — 21,720 rows with real data: firstName, lastName, email, company, position, location, bio, profilePicUrl, linkedinUrl, username, isSuperConnector, profileSyncedAt
-- **Job, Application, Endorsement, Referral, TalentPool, Event** — scaffolded but not populated yet
+- **Job** — Jobs from Workable sync + manual posting. Key fields: title, description, companyDomain, source (`manual` | `workable`), externalId (unique, for dedup), status, applyUrl, workType, employmentType, experienceLevel, skillsRequired
+- **Application, Endorsement, Referral, TalentPool, Event** — scaffolded but not populated yet
 
 ---
 
@@ -218,8 +245,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Build check:** `npm run build` — catches TypeScript errors; run before declaring work done
 - **DB schema push:** See "Schema Push Workflow" above (must use session pooler port 5432)
 - **Prisma regenerate:** `npx prisma generate` — run after any schema change
-- **Bulk sync:** Login then `POST /api/sync {"mode":"bulk"}` — fetches all 21,720 profiles (~18 min)
-- **Delta sync:** `POST /api/sync {"mode":"delta"}` — only fetches profiles not yet synced
+- **Profile bulk sync:** Login then `POST /api/sync {"mode":"bulk"}` — fetches all 21,720 profiles (~18 min)
+- **Profile delta sync:** `POST /api/sync {"mode":"delta"}` — only fetches profiles not yet synced
+- **Job sync:** `POST /api/sync {"type":"jobs"}` — fetches jobs from Workable for portfolio companies
 - **Dev login:** In browser console: `fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ useApiKey:true, apiKey:'<BRIDGE_API_KEY>' }) })`
 - **Next.js version:** 16.x (Turbopack). `middleware.ts` convention is deprecated.
 
@@ -234,7 +262,10 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Bridge API `Accept` header** — All requests to `api.brdg.app` MUST include `Accept: application/json`. Without it, Heroku returns HTML 404. This is handled in `src/lib/bridge-api/client.ts`.
 - **Response wrapping** — `/api/v1/users/*` responses wrap in `{ user: {...} }`. `/api/v1/contacts/:id` wraps in `{ contact: {...} }`. Both are unwrapped by helper functions.
 - **Broken endpoints** — `search/bridge_members` (500), `search/embeddings` (500), `users/:id` for non-self (403), `contacts/bridge_members_details/since/:time` (404), `user_networks` (404). These are commented out in the codebase with `⚠️ BROKEN` warnings.
-- **Job `source` field** — always `'manual'`; no other values valid. Do not add UI branches for other source types.
+- **Job `source` field** — `'manual'` (UI-posted) or `'workable'` (synced from Workable ATS). The `JobPostForm` always sets `source: 'manual'`. Workable source is set only by the automated sync pipeline.
+- **Job `externalId` field** — Unique, format `workable:{shortcode}`. Used for dedup during sync. `null` for manually posted jobs.
+- **Workable public API** — `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` — no auth needed. Returns `{ jobs: [...], total: N }`. Only provides title, department, location, shortcode, URL — no full descriptions.
+- **Portfolio ATS config** — Static mapping in `src/lib/sync/ats-config.ts`. Currently only Quantive uses Workable; other 7 companies are `manual_only`. Add new entries when portfolio companies adopt ATS with public APIs.
 - **Profile pics** — Most Bridge users don't have profile pics. The app uses initials avatars as fallback.
 
 ---
@@ -247,11 +278,19 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Change page layout | `src/app/(dashboard)/layout.tsx` |
 | Modify talent cards | `src/components/talent/talent-card.tsx` |
 | Modify talent page | `src/app/(dashboard)/talent/page.tsx` |
+| Modify role filters | `src/lib/role-categories.ts` |
 | Modify search | `src/components/talent/talent-search-bar.tsx` |
+| Modify jobs page | `src/app/(dashboard)/jobs/page.tsx` |
+| Modify job cards | `src/components/jobs/job-card.tsx` |
+| Modify job filters | `src/components/jobs/job-filters.tsx` |
+| Modify job posting | `src/components/jobs/job-post-form.tsx` |
+| Modify job sync | `src/lib/sync/job-sync.ts` |
+| Add Workable ATS company | `src/lib/sync/ats-config.ts` |
+| Modify Workable client | `src/lib/sync/workable-client.ts` |
 | Add Bridge API call | `src/lib/bridge-api/users.ts` or `search.ts` |
 | Add Bridge API type | `src/lib/bridge-api/types.ts` |
 | Change DB schema | `prisma/schema.prisma` → push → generate |
-| Modify sync logic | `src/lib/sync/profile-sync.ts` |
+| Modify profile sync | `src/lib/sync/profile-sync.ts` |
 | Auth / session | `src/lib/auth/session.ts` |
 | Login page | `src/app/(auth)/login/page.tsx` |
 

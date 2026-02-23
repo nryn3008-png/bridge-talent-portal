@@ -45,11 +45,60 @@ export function findSimilarProfiles(
   })
 }
 
-// Search portfolio companies in a network
+// Search portfolio companies in a network (v1)
 export function searchNetworkPortfolios(networkDomain?: string): Promise<BridgePortfolio[]> {
   return bridgeGet<BridgePortfolio[]>('/api/v1/search/network_portfolios', {
     domain: networkDomain,
   })
+}
+
+// Bridge API v4 — JSON:API format response
+interface BridgeV4PortfolioResponse {
+  data: Array<{
+    id: string
+    type: 'portfolio'
+    attributes: {
+      id: number
+      domain: string
+      description: string | null
+      industries: string[]
+      status: string
+      funded: number | null
+      invest_date: string | null
+    }
+  }>
+}
+
+// Fetch portfolio companies via v4 (JSON:API format)
+export async function fetchPortfolioCompaniesV4(
+  domain: string = 'brdg.app',
+  limit: number = 50,
+): Promise<BridgePortfolio[]> {
+  let offset = 0
+  const all: BridgePortfolio[] = []
+
+  while (true) {
+    const data = await bridgeGet<BridgeV4PortfolioResponse>(
+      '/api/v4/search/network_portfolios',
+      { domain, limit, offset },
+    )
+
+    if (!data.data || data.data.length === 0) break
+
+    for (const item of data.data) {
+      all.push({
+        domain: item.attributes.domain,
+        name: item.attributes.domain,
+        description: item.attributes.description ?? undefined,
+        industries: item.attributes.industries,
+      })
+    }
+
+    if (data.data.length < limit) break
+    offset += limit
+  }
+
+  return all
 }
 
 // Search investors in a network

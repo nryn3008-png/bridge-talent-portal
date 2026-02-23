@@ -74,7 +74,8 @@ model Job {
   location        String?
   workType        String?   @map("work_type") // remote, hybrid, onsite
   skillsRequired  String[]  @map("skills_required")
-  source          String    @default("manual") // manual (posted via Talent Portal UI)
+  externalId      String?   @unique @map("external_id") // ATS-specific ID (e.g., workable:SHORTCODE)
+  source          String    @default("manual") // manual | workable
   status          String    @default("active") // active, paused, closed, filled
   visibility      String    @default("network") // network, portfolio_only, public
   applyUrl        String?   @map("apply_url")
