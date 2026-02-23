@@ -26,12 +26,13 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 - **Job Board** (`/jobs`) — Searchable, filterable job listings with company favicons, VC network filter, and multi-ATS sources
 - **Job Detail Pages** (`/jobs/:id`) — Full job details with HTML rendering for ATS descriptions + apply button
 - **Job Posting** (`/jobs/post`) — Manual job posting form (company/vc/admin only)
-- **Portfolio Pages** (`/portfolio`, `/portfolio/:domain`) — VC network listing + detail pages with portfolio companies, investment industries, and open jobs
+- **Portfolio Pages** (`/portfolio`, `/portfolio/:domain`) — VC network listing + tabbed detail pages with Jobs, Portfolio Companies, and Talent Network tabs
 - **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via Workable, Greenhouse, Lever, and Ashby public APIs. Descriptions stored as HTML for proper formatting.
 - **Scheduled Cron Syncs** — Vercel cron jobs for automatic profile sync, job refresh, portfolio data sync, and ATS discovery
 - **Portfolio Data Cache** — `VcNetwork` + `PortfolioCompany` tables cache Bridge API portfolio data locally so pages load in <100ms instead of 30-60+ seconds
 - **ATS Cache** — `PortfolioAtsCache` table stores discovered ATS mappings for fast scheduled refreshes
-- **Company Favicons** — Job cards show company logos via Google's favicon API with initials fallback
+- **Company Favicons** — Job cards, portfolio VC cards, and portfolio company cards all show logos via Google's favicon API with CSS initials fallback (server-component compatible, no `onError` needed)
+- **Talent-Portfolio Matching** — VC detail page talent tab matches Bridge members to portfolio companies via email domain + company name stem matching (raw SQL)
 - **Top-nav only layout** — No sidebar; nav links for Talent Directory + Jobs + Portfolio; user dropdown with profile link + sign-out
 - **Bridge JWT SSO** — Login via Bridge API key (dev) or JWT
 - **Supabase PostgreSQL** — 21,720 profiles + 5,976 portfolio companies + jobs stored with real data
@@ -57,7 +58,7 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 - `/jobs/:id` → Job detail with apply (HTML descriptions rendered properly)
 - `/jobs/post` → Post a job (company/vc/admin only)
 - `/portfolio` → VC network listing (reads from cached DB data)
-- `/portfolio/:domain` → VC detail with portfolio companies + open jobs
+- `/portfolio/:domain` → VC detail with tabbed layout (supports `?tab=jobs|companies|talent`, `?page=`)
 - `/login` → Login page
 - `/introductions` → redirects to `/talent` (placeholder)
 
@@ -182,7 +183,7 @@ bridge-talent-portal/
 │   │   │   ├── jobs/[id]/page.tsx         ← Job detail with HTML description rendering
 │   │   │   ├── jobs/post/page.tsx         ← Post a job form (company/vc/admin)
 │   │   │   ├── portfolio/page.tsx         ← VC network listing (reads from cached DB)
-│   │   │   ├── portfolio/[domain]/page.tsx ← VC detail + portfolio companies + jobs
+│   │   │   ├── portfolio/[domain]/page.tsx ← VC detail with tabbed layout (Jobs/Companies/Talent)
 │   │   │   └── introductions/page.tsx     ← Redirects to /talent
 │   │   └── api/
 │   │       ├── auth/                      ← Login, logout, me
@@ -204,6 +205,11 @@ bridge-talent-portal/
 │   │   │   ├── job-filters.tsx            ← Search + filter dropdowns + VC network filter
 │   │   │   ├── job-post-form.tsx          ← Manual job posting form
 │   │   │   └── job-apply-button.tsx       ← Apply with cover note
+│   │   ├── portfolio/
+│   │   │   ├── vc-card.tsx                ← VC network card (server component, Google favicon)
+│   │   │   ├── portfolio-company-card.tsx  ← Portfolio company card (server component, Google favicon, optional jobCount)
+│   │   │   ├── vc-detail-tabs.tsx         ← Client tab bar for VC detail page (Jobs/Companies/Talent)
+│   │   │   └── sync-portfolio-jobs-button.tsx ← Sync trigger button (admin/vc only)
 │   │   └── ui/                            ← shadcn/ui primitives
 │   ├── lib/
 │   │   ├── auth/session.ts                ← JWT session management
@@ -215,6 +221,7 @@ bridge-talent-portal/
 │   │   │   ├── portfolio.ts               ← fetchVcDetails, fetchPortfolioCompanies (Bridge API)
 │   │   │   └── introductions.ts           ← Intro endpoints
 │   │   ├── db/prisma.ts                   ← Prisma client singleton
+│   │   ├── portfolio-talent-match.ts      ← Talent-to-portfolio matching (email domain + company stem, raw SQL)
 │   │   ├── role-categories.ts             ← Role category filters for talent directory
 │   │   └── sync/
 │   │       ├── profile-sync.ts            ← Bulk/delta profile sync service
@@ -306,7 +313,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Job `source` field** — `'manual'` (UI-posted) or `'workable'` | `'greenhouse'` | `'lever'` | `'ashby'` (synced from ATS). The `JobPostForm` always sets `source: 'manual'`.
 - **Job `externalId` field** — Unique, format `{provider}:{id}` (e.g., `greenhouse:127817`, `ashby:cedc8928-...`). Used for dedup during sync. `null` for manually posted jobs.
 - **Job descriptions are HTML** — ATS sources (Greenhouse, Lever, Ashby) store HTML descriptions. The job detail page auto-detects HTML via regex and renders with `dangerouslySetInnerHTML`. Manual/Workable jobs render as plain text with `whitespace-pre-wrap`. Job card previews always strip HTML.
-- **Company favicons** — Job cards use Google's favicon API: `https://www.google.com/s2/favicons?domain={domain}&sz=64`. CSS initials fallback rendered behind the image. No `onError` handler (server component).
+- **Company favicons** — Job cards, VC cards, and portfolio company cards all use Google's favicon API: `https://www.google.com/s2/favicons?domain={domain}&sz=64`. CSS initials fallback rendered behind the image (absolute span + `z-10` on img). Server-component compatible — no `onError` handler, no `useState`, no `'use client'`.
+- **VC detail page tabs** — `/portfolio/:domain` uses URL-param tabs (`?tab=jobs|companies|talent`). The `VcDetailTabs` client component renders shadcn Tabs (line variant) with `<Link>` navigation. All 3 tab counts are fetched in parallel via `Promise.all`; only the active tab's paginated data is loaded. Default tab is `jobs`.
+- **Talent-portfolio matching** — `src/lib/portfolio-talent-match.ts` matches `TalentProfile` records to portfolio companies using raw SQL. Two strategies: (1) email domain match — `SPLIT_PART(email, '@', 2) = ANY(domains)`, (2) company name stem match — strip TLD from portfolio domains and match against `LOWER(company)`. Note: `TalentProfile.company` stores names ("Techstars"), while `PortfolioCompany.domain` stores domains ("techstars.com") — there's no FK between them.
 - **Portfolio data is cached in DB** — `VcNetwork` + `PortfolioCompany` tables. Portfolio and jobs pages read from DB (fast). Bridge API `fetchPortfolioCompanies()` is only used by the sync service, NOT by page-load code paths. The `?type=portfolio` cron refreshes daily. Manual trigger: `POST /api/sync {"type":"portfolio"}`.
 - **Workable public API** — `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` — no auth needed. Returns `{ jobs: [...], total: N }`. Only provides title, department, location, shortcode, URL — no full descriptions.
 - **Portfolio ATS config** — Static mapping in `src/lib/sync/ats-config.ts`. Currently only Quantive uses Workable; other 7 companies are `manual_only`. Add new entries when portfolio companies adopt ATS with public APIs.
@@ -340,6 +349,10 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Modify portfolio sync | `src/lib/sync/portfolio-sync.ts` |
 | Modify portfolio page | `src/app/(dashboard)/portfolio/page.tsx` |
 | Modify portfolio detail | `src/app/(dashboard)/portfolio/[domain]/page.tsx` |
+| Modify VC detail tabs | `src/components/portfolio/vc-detail-tabs.tsx` |
+| Modify VC cards | `src/components/portfolio/vc-card.tsx` |
+| Modify portfolio company cards | `src/components/portfolio/portfolio-company-card.tsx` |
+| Modify talent-portfolio matching | `src/lib/portfolio-talent-match.ts` |
 | Bridge API portfolio calls | `src/lib/bridge-api/portfolio.ts` |
 | Auth / session | `src/lib/auth/session.ts` |
 | Login page | `src/app/(auth)/login/page.tsx` |

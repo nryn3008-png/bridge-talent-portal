@@ -1,9 +1,5 @@
-'use client'
-
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import Image from 'next/image'
-import { useState } from 'react'
 
 interface PortfolioCompanyCardProps {
   domain: string
@@ -12,30 +8,25 @@ interface PortfolioCompanyCardProps {
   status: string | null
   funded: number | null
   investDate: string | null
+  jobCount?: number
 }
 
 function CompanyLogo({ domain }: { domain: string }) {
-  const [failed, setFailed] = useState(false)
   const initial = domain[0].toUpperCase()
 
-  if (failed) {
-    return (
-      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-primary font-bold text-lg">{initial}</span>
-      </div>
-    )
-  }
-
   return (
-    <Image
-      src={`https://logo.clearbit.com/${domain}`}
-      alt={`${domain} logo`}
-      width={40}
-      height={40}
-      className="w-10 h-10 rounded-lg object-contain bg-white border border-gray-100 flex-shrink-0"
-      onError={() => setFailed(true)}
-      unoptimized
-    />
+    <div className="relative flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-gray-400">
+        {initial}
+      </span>
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+        alt=""
+        width={24}
+        height={24}
+        className="rounded-sm relative z-10"
+      />
+    </div>
   )
 }
 
@@ -50,6 +41,7 @@ export function PortfolioCompanyCard({
   description,
   industries,
   status,
+  jobCount,
 }: PortfolioCompanyCardProps) {
   const name = formatCompanyName(domain)
 
@@ -74,6 +66,9 @@ export function PortfolioCompanyCard({
               )}
             </div>
             <p className="text-xs text-muted-foreground truncate">{domain}</p>
+            {jobCount !== undefined && jobCount > 0 && (
+              <p className="text-xs text-green-600 font-medium">{jobCount} open {jobCount === 1 ? 'job' : 'jobs'}</p>
+            )}
           </div>
         </div>
 

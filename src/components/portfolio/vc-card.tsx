@@ -1,10 +1,6 @@
-'use client'
-
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import Image from 'next/image'
-import { useState } from 'react'
 
 interface VcCardProps {
   domain: string
@@ -16,27 +12,21 @@ interface VcCardProps {
 }
 
 function VcLogo({ domain, title }: { domain: string; title: string | null }) {
-  const [failed, setFailed] = useState(false)
   const initial = (title ?? domain)[0].toUpperCase()
 
-  if (failed) {
-    return (
-      <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <span className="text-primary font-bold text-xl">{initial}</span>
-      </div>
-    )
-  }
-
   return (
-    <Image
-      src={`https://logo.clearbit.com/${domain}`}
-      alt={`${title ?? domain} logo`}
-      width={48}
-      height={48}
-      className="w-12 h-12 rounded-lg object-contain bg-white border border-gray-100 flex-shrink-0"
-      onError={() => setFailed(true)}
-      unoptimized
-    />
+    <div className="relative flex-shrink-0 w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-gray-400">
+        {initial}
+      </span>
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+        alt=""
+        width={28}
+        height={28}
+        className="rounded-sm relative z-10"
+      />
+    </div>
   )
 }
 
