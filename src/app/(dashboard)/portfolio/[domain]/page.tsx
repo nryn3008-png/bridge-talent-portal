@@ -1,7 +1,6 @@
 import { getSession } from '@/lib/auth/session'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
-import { fetchVcDetails, fetchPortfolioCompanies } from '@/lib/bridge-api/portfolio'
 import { PortfolioCompanyCard } from '@/components/portfolio/portfolio-company-card'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -22,24 +21,41 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
     redirect('/login')
   }
 
+  if (!prisma) {
+    return <div className="p-8 text-center text-muted-foreground">Database not configured</div>
+  }
+
   const { domain } = await params
   const sParams = await searchParams
   const decodedDomain = decodeURIComponent(domain)
   const page = Math.max(1, parseInt(sParams.page || '1'))
   const perPage = 24
 
-  let vc
-  let companies
+  // Read VC details from local DB (fast, single query)
+  const vcRecord = await prisma.vcNetwork.findUnique({
+    where: { domain: decodedDomain },
+  })
 
-  try {
-    ;[vc, companies] = await Promise.all([
-      fetchVcDetails(decodedDomain),
-      fetchPortfolioCompanies(decodedDomain),
-    ])
-  } catch (err) {
-    console.error(`[portfolio/${decodedDomain}] Failed to fetch:`, err)
-    notFound()
+  if (!vcRecord) notFound()
+
+  // Map to shape used by the page
+  const vc = {
+    domain: vcRecord.domain,
+    title: vcRecord.title,
+    description: vcRecord.description,
+    location: vcRecord.location,
+    isVc: vcRecord.isVc,
+    founders: vcRecord.founders,
+    industries: vcRecord.industries,
+    industriesInvestIn: (vcRecord.industriesInvestIn ?? {}) as Record<string, number>,
+    investmentFocus: vcRecord.investmentFocus,
   }
+
+  // Read portfolio companies from local DB (fast, single query)
+  const companies = await prisma.portfolioCompany.findMany({
+    where: { vcDomain: decodedDomain },
+    orderBy: { domain: 'asc' },
+  })
 
   const displayName = vc.title ?? decodedDomain
   const totalCompanies = companies.length
@@ -65,7 +81,7 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
     applyUrl: string | null
   }> = []
 
-  if (prisma && companyDomains.length > 0) {
+  if (companyDomains.length > 0) {
     portfolioJobs = await prisma.job.findMany({
       where: {
         companyDomain: { in: companyDomains },
@@ -207,7 +223,7 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
           ) : (
             <div className="border border-dashed border-gray-300 rounded-lg p-6 text-center">
               <p className="text-sm text-muted-foreground">
-                No jobs found yet. Click &quot;Sync Portfolio Jobs&quot; to discover open positions from portfolio companies using Workable.
+                No jobs found yet. Click &quot;Sync Portfolio Jobs&quot; to discover open positions from portfolio companies.
               </p>
             </div>
           )}

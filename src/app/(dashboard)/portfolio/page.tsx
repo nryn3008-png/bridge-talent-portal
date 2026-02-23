@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth/session'
 import { redirect } from 'next/navigation'
-import { fetchVcDetails, fetchPortfolioCompanies } from '@/lib/bridge-api/portfolio'
+import { prisma } from '@/lib/db/prisma'
 import { VcCard } from '@/components/portfolio/vc-card'
 import { SyncPortfolioJobsButton } from '@/components/portfolio/sync-portfolio-jobs-button'
 
@@ -29,30 +29,22 @@ export default async function PortfolioPage() {
     )
   }
 
-  // Fetch VC details + portfolio counts for all user networks in parallel
-  const results = await Promise.allSettled(
-    domains.map(async (domain) => {
-      const [details, companies] = await Promise.all([
-        fetchVcDetails(domain),
-        fetchPortfolioCompanies(domain),
-      ])
-      return { details, portfolioCount: companies.length }
-    }),
-  )
+  // Read VC networks + portfolio counts from local DB (fast, single query)
+  const vcRecords = prisma
+    ? await prisma.vcNetwork.findMany({
+        where: { domain: { in: domains }, isVc: true },
+        include: { _count: { select: { portfolioCompanies: true } } },
+      })
+    : []
 
-  // Filter to only VC networks that loaded successfully
-  const vcs = results
-    .map((r, i) => {
-      if (r.status === 'fulfilled' && r.value.details.isVc) {
-        return { ...r.value.details, portfolioCount: r.value.portfolioCount }
-      }
-      // Fallback: show the domain even if API failed, but mark as VC
-      if (r.status === 'rejected') {
-        console.warn(`[portfolio] Failed to fetch details for ${domains[i]}:`, r.reason)
-      }
-      return null
-    })
-    .filter((vc): vc is NonNullable<typeof vc> => vc !== null)
+  const vcs = vcRecords.map((vc) => ({
+    domain: vc.domain,
+    title: vc.title,
+    description: vc.description,
+    industries: vc.industries,
+    location: vc.location,
+    portfolioCount: vc._count.portfolioCompanies,
+  }))
 
   return (
     <div className="p-8">
@@ -75,7 +67,7 @@ export default async function PortfolioPage() {
           <div className="text-center py-16 max-w-lg mx-auto">
             <h3 className="text-lg font-semibold mb-2">No VC networks available</h3>
             <p className="text-sm text-muted-foreground">
-              Your connected networks don&apos;t have portfolio data yet.
+              Your connected networks don&apos;t have portfolio data yet. An admin can trigger a portfolio sync to populate this data.
             </p>
           </div>
         )}

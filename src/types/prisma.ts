@@ -11,4 +11,6 @@ export type {
   Event,
   EventRsvp,
   BridgeSyncLog,
+  VcNetwork,
+  PortfolioCompany,
 } from '.prisma/client'

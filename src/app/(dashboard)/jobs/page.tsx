@@ -5,8 +5,6 @@ import { JobCard } from '@/components/jobs/job-card'
 import { JobFilters } from '@/components/jobs/job-filters'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { fetchPortfolioCompanies } from '@/lib/bridge-api/portfolio'
-import { fetchVcDetails } from '@/lib/bridge-api/portfolio'
 
 interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>
@@ -26,27 +24,35 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const page = Math.max(1, parseInt(params.page || '1'))
   const perPage = 20
 
-  // Fetch VC network names for the filter dropdown
+  // Read VC network names from local DB (fast, single query)
   const networkDomains = session.networkDomains ?? []
-  const vcNetworks: Array<{ domain: string; name: string }> = []
-  for (const nd of networkDomains) {
-    try {
-      const details = await fetchVcDetails(nd)
-      vcNetworks.push({ domain: nd, name: details.title || nd })
-    } catch {
-      vcNetworks.push({ domain: nd, name: nd })
+  let vcNetworks: Array<{ domain: string; name: string }> = []
+  if (prisma && networkDomains.length > 0) {
+    const vcs = await prisma.vcNetwork.findMany({
+      where: { domain: { in: networkDomains } },
+      select: { domain: true, title: true },
+    })
+    vcNetworks = vcs.map((vc) => ({
+      domain: vc.domain,
+      name: vc.title || vc.domain,
+    }))
+    // Add any domains not yet in DB (fallback to domain as name)
+    const cachedDomains = new Set(vcs.map((v) => v.domain))
+    for (const nd of networkDomains) {
+      if (!cachedDomains.has(nd)) {
+        vcNetworks.push({ domain: nd, name: nd })
+      }
     }
   }
 
-  // If filtering by VC, get that VC's portfolio company domains
+  // If filtering by VC, get that VC's portfolio company domains from local DB
   let vcCompanyDomains: string[] | null = null
-  if (vcDomain) {
-    try {
-      const companies = await fetchPortfolioCompanies(vcDomain)
-      vcCompanyDomains = companies.map((c) => c.domain)
-    } catch {
-      vcCompanyDomains = []
-    }
+  if (vcDomain && prisma) {
+    const companies = await prisma.portfolioCompany.findMany({
+      where: { vcDomain },
+      select: { domain: true },
+    })
+    vcCompanyDomains = companies.map((c) => c.domain)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

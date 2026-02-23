@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
 import { bulkSyncBridgeMembers, deltaSyncBridgeMembers } from '@/lib/sync/profile-sync'
 import { syncJobsFromAts, syncJobsFromPortfolioCompanies } from '@/lib/sync/job-sync'
-import { fetchPortfolioCompanies } from '@/lib/bridge-api/portfolio'
+import { syncPortfolioData } from '@/lib/sync/portfolio-sync'
+import { prisma } from '@/lib/db/prisma'
 
 // POST /api/sync — trigger a sync (admin/vc only)
-// Body: { type?: "profiles" | "jobs" | "portfolio_jobs", mode?: "bulk" | "delta", vcDomain?: string }
+// Body: { type?: "profiles" | "jobs" | "portfolio_jobs" | "portfolio", mode?: "bulk" | "delta", vcDomain?: string }
 export async function POST(request: Request) {
   const session = await getSession()
   if (!session || !['vc', 'admin'].includes(session.role)) {
@@ -20,23 +21,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, type: 'jobs', ...result })
     }
 
+    if (type === 'portfolio') {
+      // Sync VC network details + portfolio companies to local DB
+      const vcDomainsStr = process.env.PORTFOLIO_VC_DOMAINS ?? ''
+      const envDomains = vcDomainsStr.split(',').map((d) => d.trim()).filter(Boolean)
+      const sessionDomains = session.networkDomains ?? []
+      const allDomains = [...new Set([...envDomains, ...sessionDomains])]
+
+      if (allDomains.length === 0) {
+        return NextResponse.json({ error: 'No VC domains configured or in session' }, { status: 400 })
+      }
+
+      const result = await syncPortfolioData(allDomains)
+      return NextResponse.json({ success: true, type: 'portfolio', ...result })
+    }
+
     if (type === 'portfolio_jobs') {
-      // Sync jobs by auto-discovering Workable accounts from portfolio companies
+      // Sync jobs by auto-discovering ATS accounts from portfolio companies
+      // Read from cached portfolio companies in DB (fast) instead of Bridge API
       const domains: string[] = []
 
-      if (vcDomain) {
-        // Sync jobs for a specific VC's portfolio companies
-        const companies = await fetchPortfolioCompanies(vcDomain)
-        domains.push(...companies.map((c) => c.domain))
-      } else {
-        // Sync jobs across all user's VC networks
-        const networkDomains = session.networkDomains ?? []
-        for (const nd of networkDomains) {
-          try {
-            const companies = await fetchPortfolioCompanies(nd)
+      if (prisma) {
+        if (vcDomain) {
+          const companies = await prisma.portfolioCompany.findMany({
+            where: { vcDomain },
+            select: { domain: true },
+          })
+          domains.push(...companies.map((c) => c.domain))
+        } else {
+          const networkDomains = session.networkDomains ?? []
+          if (networkDomains.length > 0) {
+            const companies = await prisma.portfolioCompany.findMany({
+              where: { vcDomain: { in: networkDomains } },
+              select: { domain: true },
+            })
             domains.push(...companies.map((c) => c.domain))
-          } catch {
-            // Skip networks that fail to load
           }
         }
       }

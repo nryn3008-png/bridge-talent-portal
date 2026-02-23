@@ -23,15 +23,18 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 ### What's Built
 - **Talent Directory** (`/talent`) — Searchable, paginated directory of all Bridge members with role category filters
 - **Profile Detail Pages** (`/talent/:id`) — Individual member profiles
-- **Job Board** (`/jobs`) — Searchable, filterable job listings from portfolio companies + manual posts
-- **Job Detail Pages** (`/jobs/:id`) — Full job details with apply button
+- **Job Board** (`/jobs`) — Searchable, filterable job listings with company favicons, VC network filter, and multi-ATS sources
+- **Job Detail Pages** (`/jobs/:id`) — Full job details with HTML rendering for ATS descriptions + apply button
 - **Job Posting** (`/jobs/post`) — Manual job posting form (company/vc/admin only)
-- **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via Workable, Greenhouse, Lever, and Ashby public APIs
-- **Scheduled Cron Syncs** — Vercel cron jobs for automatic profile sync, job refresh, and ATS discovery
+- **Portfolio Pages** (`/portfolio`, `/portfolio/:domain`) — VC network listing + detail pages with portfolio companies, investment industries, and open jobs
+- **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via Workable, Greenhouse, Lever, and Ashby public APIs. Descriptions stored as HTML for proper formatting.
+- **Scheduled Cron Syncs** — Vercel cron jobs for automatic profile sync, job refresh, portfolio data sync, and ATS discovery
+- **Portfolio Data Cache** — `VcNetwork` + `PortfolioCompany` tables cache Bridge API portfolio data locally so pages load in <100ms instead of 30-60+ seconds
 - **ATS Cache** — `PortfolioAtsCache` table stores discovered ATS mappings for fast scheduled refreshes
-- **Top-nav only layout** — No sidebar; nav links for Talent Directory + Jobs; user dropdown with profile link + sign-out
+- **Company Favicons** — Job cards show company logos via Google's favicon API with initials fallback
+- **Top-nav only layout** — No sidebar; nav links for Talent Directory + Jobs + Portfolio; user dropdown with profile link + sign-out
 - **Bridge JWT SSO** — Login via Bridge API key (dev) or JWT
-- **Supabase PostgreSQL** — 21,720 profiles + jobs stored with real data
+- **Supabase PostgreSQL** — 21,720 profiles + 5,976 portfolio companies + jobs stored with real data
 - **Bulk sync** — Fetches all profiles from Bridge API via `GET /contacts/:id`
 - **Search** — By name, company, position, email across all profiles
 
@@ -50,9 +53,11 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 - `/` → redirects to `/talent`
 - `/talent` → Talent Directory (main page, supports `?role=`, `?q=`, `?page=`)
 - `/talent/:id` → Profile detail
-- `/jobs` → Job Board (supports `?q=`, `?work_type=`, `?employment_type=`, `?experience_level=`, `?page=`)
-- `/jobs/:id` → Job detail with apply
+- `/jobs` → Job Board (supports `?q=`, `?work_type=`, `?employment_type=`, `?experience_level=`, `?vc=`, `?page=`)
+- `/jobs/:id` → Job detail with apply (HTML descriptions rendered properly)
 - `/jobs/post` → Post a job (company/vc/admin only)
+- `/portfolio` → VC network listing (reads from cached DB data)
+- `/portfolio/:domain` → VC detail with portfolio companies + open jobs
 - `/login` → Login page
 - `/introductions` → redirects to `/talent` (placeholder)
 
@@ -121,7 +126,8 @@ Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by
 |---|---|---|
 | `?type=profiles` | Every 6 hours | Delta sync — fetches new/unsynced Bridge member profiles |
 | `?type=jobs` | Every 6 hours (offset) | Refreshes jobs from all cached ATS accounts (~120 companies, ~2 min) |
-| `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains for new ATS accounts (150 per run) |
+| `?type=portfolio` | Daily (2 AM) | Syncs VC network details + portfolio companies from Bridge API to local DB |
+| `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains for new ATS accounts (150 per run, reads domains from cached DB) |
 
 **Environment variables for cron:**
 - `CRON_SECRET` — Bearer token for authenticating Vercel cron requests
@@ -161,7 +167,7 @@ Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by
 bridge-talent-portal/
 ├── CLAUDE.md                              ← YOU ARE HERE
 ├── prisma/
-│   └── schema.prisma                      ← DB schema (11 models)
+│   └── schema.prisma                      ← DB schema (13 models)
 ├── prisma.config.ts                       ← Prisma config with dotenv
 ├── src/
 │   ├── app/
@@ -172,9 +178,11 @@ bridge-talent-portal/
 │   │   │   ├── talent/page.tsx            ← Main talent directory (role filters)
 │   │   │   ├── talent/[id]/page.tsx       ← Profile detail
 │   │   │   ├── profile/page.tsx           ← User's own profile
-│   │   │   ├── jobs/page.tsx              ← Job board (search, filters, pagination)
-│   │   │   ├── jobs/[id]/page.tsx         ← Job detail with apply
+│   │   │   ├── jobs/page.tsx              ← Job board (search, filters, VC filter, favicons)
+│   │   │   ├── jobs/[id]/page.tsx         ← Job detail with HTML description rendering
 │   │   │   ├── jobs/post/page.tsx         ← Post a job form (company/vc/admin)
+│   │   │   ├── portfolio/page.tsx         ← VC network listing (reads from cached DB)
+│   │   │   ├── portfolio/[domain]/page.tsx ← VC detail + portfolio companies + jobs
 │   │   │   └── introductions/page.tsx     ← Redirects to /talent
 │   │   └── api/
 │   │       ├── auth/                      ← Login, logout, me
@@ -192,8 +200,8 @@ bridge-talent-portal/
 │   │   │   ├── talent-directory-client.tsx ← Directory grid + search + role filters
 │   │   │   └── talent-search-bar.tsx      ← Search input
 │   │   ├── jobs/
-│   │   │   ├── job-card.tsx               ← Job listing card (with source badge)
-│   │   │   ├── job-filters.tsx            ← Search + filter dropdowns
+│   │   │   ├── job-card.tsx               ← Job listing card (with favicons + source badge)
+│   │   │   ├── job-filters.tsx            ← Search + filter dropdowns + VC network filter
 │   │   │   ├── job-post-form.tsx          ← Manual job posting form
 │   │   │   └── job-apply-button.tsx       ← Apply with cover note
 │   │   └── ui/                            ← shadcn/ui primitives
@@ -204,11 +212,13 @@ bridge-talent-portal/
 │   │   │   ├── types.ts                   ← BridgeUser, BridgeContact, BridgeMember, BridgePortfolio types
 │   │   │   ├── users.ts                   ← getCurrentUser, getContactById, getBridgeMemberIds
 │   │   │   ├── search.ts                  ← Network search + v4 portfolio fetching
+│   │   │   ├── portfolio.ts               ← fetchVcDetails, fetchPortfolioCompanies (Bridge API)
 │   │   │   └── introductions.ts           ← Intro endpoints
 │   │   ├── db/prisma.ts                   ← Prisma client singleton
 │   │   ├── role-categories.ts             ← Role category filters for talent directory
 │   │   └── sync/
 │   │       ├── profile-sync.ts            ← Bulk/delta profile sync service
+│   │       ├── portfolio-sync.ts          ← Syncs VC details + portfolio companies to local DB
 │   │       ├── job-sync.ts                ← Job sync + cache-based refresh + discovery
 │   │       ├── ats-discovery.ts           ← Unified multi-ATS discovery (probes 4 providers)
 │   │       ├── workable-client.ts         ← Workable public widget API client
@@ -243,6 +253,8 @@ bridge-talent-portal/
 ### Key Models
 - **TalentProfile** — 21,720 rows with real data: firstName, lastName, email, company, position, location, bio, profilePicUrl, linkedinUrl, username, isSuperConnector, profileSyncedAt
 - **Job** — Jobs from multi-ATS sync + manual posting. Key fields: title, description, companyDomain, source (`manual` | `workable` | `greenhouse` | `lever` | `ashby`), externalId (unique, for dedup), status, applyUrl, workType, employmentType, experienceLevel, skillsRequired
+- **VcNetwork** — Caches VC/network details from Bridge API `GET /api/v1/tags/:domain/details`. Fields: domain (unique), title, description, location, isVc, founders, industries, industriesInvestIn (JSON). Synced daily by `?type=portfolio` cron.
+- **PortfolioCompany** — Caches portfolio company data from Bridge API v4 `network_portfolios`. Fields: domain, vcDomain (FK to VcNetwork), description, industries, status, funded, investDate. Composite unique on `[domain, vcDomain]`. ~5,976 rows across 3 VCs.
 - **PortfolioAtsCache** — Caches discovered ATS mappings (companyDomain → provider + slug). Used by scheduled cron for fast job refreshes without re-probing.
 - **Application, Endorsement, Referral, TalentPool, Event** — scaffolded but not populated yet
 
@@ -275,7 +287,8 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Prisma regenerate:** `npx prisma generate` — run after any schema change
 - **Profile bulk sync:** Login then `POST /api/sync {"mode":"bulk"}` — fetches all 21,720 profiles (~18 min)
 - **Profile delta sync:** `POST /api/sync {"mode":"delta"}` — only fetches profiles not yet synced
-- **Job sync:** `POST /api/sync {"type":"jobs"}` — fetches jobs from Workable for portfolio companies
+- **Job sync:** `POST /api/sync {"type":"jobs"}` — fetches jobs from cached ATS accounts
+- **Portfolio sync:** `POST /api/sync {"type":"portfolio"}` — syncs VC details + portfolio companies to local DB
 - **Dev login:** In browser console: `fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ useApiKey:true, apiKey:'<BRIDGE_API_KEY>' }) })`
 - **Next.js version:** 16.x (Turbopack). `middleware.ts` convention is deprecated.
 
@@ -290,8 +303,11 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Bridge API `Accept` header** — All requests to `api.brdg.app` MUST include `Accept: application/json`. Without it, Heroku returns HTML 404. This is handled in `src/lib/bridge-api/client.ts`.
 - **Response wrapping** — `/api/v1/users/*` responses wrap in `{ user: {...} }`. `/api/v1/contacts/:id` wraps in `{ contact: {...} }`. Both are unwrapped by helper functions.
 - **Broken endpoints** — `search/bridge_members` (500), `search/embeddings` (500), `users/:id` for non-self (403), `contacts/bridge_members_details/since/:time` (404), `user_networks` (404). These are commented out in the codebase with `⚠️ BROKEN` warnings.
-- **Job `source` field** — `'manual'` (UI-posted) or `'workable'` (synced from Workable ATS). The `JobPostForm` always sets `source: 'manual'`. Workable source is set only by the automated sync pipeline.
-- **Job `externalId` field** — Unique, format `workable:{shortcode}`. Used for dedup during sync. `null` for manually posted jobs.
+- **Job `source` field** — `'manual'` (UI-posted) or `'workable'` | `'greenhouse'` | `'lever'` | `'ashby'` (synced from ATS). The `JobPostForm` always sets `source: 'manual'`.
+- **Job `externalId` field** — Unique, format `{provider}:{id}` (e.g., `greenhouse:127817`, `ashby:cedc8928-...`). Used for dedup during sync. `null` for manually posted jobs.
+- **Job descriptions are HTML** — ATS sources (Greenhouse, Lever, Ashby) store HTML descriptions. The job detail page auto-detects HTML via regex and renders with `dangerouslySetInnerHTML`. Manual/Workable jobs render as plain text with `whitespace-pre-wrap`. Job card previews always strip HTML.
+- **Company favicons** — Job cards use Google's favicon API: `https://www.google.com/s2/favicons?domain={domain}&sz=64`. CSS initials fallback rendered behind the image. No `onError` handler (server component).
+- **Portfolio data is cached in DB** — `VcNetwork` + `PortfolioCompany` tables. Portfolio and jobs pages read from DB (fast). Bridge API `fetchPortfolioCompanies()` is only used by the sync service, NOT by page-load code paths. The `?type=portfolio` cron refreshes daily. Manual trigger: `POST /api/sync {"type":"portfolio"}`.
 - **Workable public API** — `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` — no auth needed. Returns `{ jobs: [...], total: N }`. Only provides title, department, location, shortcode, URL — no full descriptions.
 - **Portfolio ATS config** — Static mapping in `src/lib/sync/ats-config.ts`. Currently only Quantive uses Workable; other 7 companies are `manual_only`. Add new entries when portfolio companies adopt ATS with public APIs.
 - **Profile pics** — Most Bridge users don't have profile pics. The app uses initials avatars as fallback.
@@ -321,6 +337,10 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Add Bridge API type | `src/lib/bridge-api/types.ts` |
 | Change DB schema | `prisma/schema.prisma` → push → generate |
 | Modify profile sync | `src/lib/sync/profile-sync.ts` |
+| Modify portfolio sync | `src/lib/sync/portfolio-sync.ts` |
+| Modify portfolio page | `src/app/(dashboard)/portfolio/page.tsx` |
+| Modify portfolio detail | `src/app/(dashboard)/portfolio/[domain]/page.tsx` |
+| Bridge API portfolio calls | `src/lib/bridge-api/portfolio.ts` |
 | Auth / session | `src/lib/auth/session.ts` |
 | Login page | `src/app/(auth)/login/page.tsx` |
 

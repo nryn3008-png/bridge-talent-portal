@@ -269,3 +269,49 @@ model SavedJob {
   @@unique([bridgeUserId, jobId])
   @@map("saved_jobs")
 }
+
+// ─── VC Networks ──────────────────────────────────────────────────────────────
+// Caches VC network details from Bridge API GET /api/v1/tags/:domain/details
+// so portfolio + jobs pages don't need to call Bridge API on every page load.
+model VcNetwork {
+  id                 String    @id @default(uuid())
+  domain             String    @unique
+  title              String?
+  description        String?   @db.Text
+  location           String?
+  isVc               Boolean   @default(true) @map("is_vc")
+  founders           String[]
+  industries         String[]
+  industriesInvestIn Json      @default("{}") @map("industries_invest_in")
+  investmentFocus    String?   @map("investment_focus")
+  lastSyncedAt       DateTime? @map("last_synced_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  portfolioCompanies PortfolioCompany[]
+
+  @@map("vc_networks")
+}
+
+// ─── Portfolio Companies ─────────────────────────────────────────────────────
+// Caches portfolio company data from Bridge API v4 network_portfolios endpoint
+// so portfolio pages load from local DB instead of paginating through Bridge API.
+model PortfolioCompany {
+  id           String    @id @default(uuid())
+  domain       String
+  vcDomain     String    @map("vc_domain")
+  description  String?   @db.Text
+  industries   String[]
+  status       String?
+  funded       Int?
+  investDate   String?   @map("invest_date")
+  lastSyncedAt DateTime? @map("last_synced_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  vcNetwork VcNetwork @relation(fields: [vcDomain], references: [domain])
+
+  @@unique([domain, vcDomain])
+  @@index([vcDomain], map: "idx_portfolio_companies_vc")
+  @@map("portfolio_companies")
+}

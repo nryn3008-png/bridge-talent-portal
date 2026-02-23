@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { deltaSyncBridgeMembers } from '@/lib/sync/profile-sync'
 import { syncJobsFromCache, discoverNewAtsAccounts } from '@/lib/sync/job-sync'
-import { fetchPortfolioCompanies } from '@/lib/bridge-api/portfolio'
+import { syncPortfolioData } from '@/lib/sync/portfolio-sync'
+import { prisma } from '@/lib/db/prisma'
 
-// GET /api/cron?type=profiles|jobs|discovery
+// GET /api/cron?type=profiles|jobs|discovery|portfolio
 // Called by Vercel Cron — authenticated via CRON_SECRET
 export async function GET(request: Request) {
   // Verify cron secret
@@ -38,34 +39,48 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: true, type: 'jobs', ...result })
       }
 
-      // ── ATS Discovery (find new ATS accounts) ──────────────────────
-      case 'discovery': {
-        console.log('[cron] Starting ATS discovery for portfolio companies...')
+      // ── Portfolio Data Sync ───────────────────────────────────────────
+      case 'portfolio': {
+        console.log('[cron] Starting portfolio data sync...')
 
-        // Get portfolio company domains from configured VC networks
         const vcDomainsStr = process.env.PORTFOLIO_VC_DOMAINS ?? ''
         const vcDomains = vcDomainsStr.split(',').map((d) => d.trim()).filter(Boolean)
 
         if (vcDomains.length === 0) {
           return NextResponse.json({
             success: false,
-            error: 'PORTFOLIO_VC_DOMAINS not configured. Set it to a comma-separated list of VC domains.',
+            error: 'PORTFOLIO_VC_DOMAINS not configured.',
           }, { status: 400 })
         }
 
-        // Collect all portfolio company domains from all VCs
-        const allDomains: string[] = []
-        for (const vcDomain of vcDomains) {
-          try {
-            const companies = await fetchPortfolioCompanies(vcDomain)
-            allDomains.push(...companies.map((c) => c.domain))
-          } catch (err) {
-            console.error(`[cron] Failed to fetch portfolio for ${vcDomain}:`, err)
-          }
+        const result = await syncPortfolioData(vcDomains)
+        return NextResponse.json({ success: true, type: 'portfolio', ...result })
+      }
+
+      // ── ATS Discovery (find new ATS accounts) ──────────────────────
+      case 'discovery': {
+        console.log('[cron] Starting ATS discovery for portfolio companies...')
+
+        if (!prisma) {
+          return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+        }
+
+        // Read cached portfolio company domains from DB (fast, no Bridge API calls)
+        const companies = await prisma.portfolioCompany.findMany({
+          select: { domain: true },
+        })
+        const allDomains = companies.map((c) => c.domain)
+
+        if (allDomains.length === 0) {
+          // Fallback: if no portfolio data cached yet, log and skip
+          return NextResponse.json({
+            success: false,
+            error: 'No portfolio companies cached. Run portfolio sync first: ?type=portfolio',
+          }, { status: 400 })
         }
 
         const uniqueDomains = [...new Set(allDomains)]
-        console.log(`[cron] Collected ${uniqueDomains.length} unique portfolio company domains from ${vcDomains.length} VCs`)
+        console.log(`[cron] ${uniqueDomains.length} unique portfolio company domains from cache`)
 
         // Discover new ATS accounts (limited to 150 per run to stay within timeout)
         const result = await discoverNewAtsAccounts(uniqueDomains, 150)
