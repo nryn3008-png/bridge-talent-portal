@@ -26,7 +26,9 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 - **Job Board** (`/jobs`) — Searchable, filterable job listings from portfolio companies + manual posts
 - **Job Detail Pages** (`/jobs/:id`) — Full job details with apply button
 - **Job Posting** (`/jobs/post`) — Manual job posting form (company/vc/admin only)
-- **Job Sync from Workable** — Automated sync of jobs from portfolio companies using Workable's public widget API
+- **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via Workable, Greenhouse, Lever, and Ashby public APIs
+- **Scheduled Cron Syncs** — Vercel cron jobs for automatic profile sync, job refresh, and ATS discovery
+- **ATS Cache** — `PortfolioAtsCache` table stores discovered ATS mappings for fast scheduled refreshes
 - **Top-nav only layout** — No sidebar; nav links for Talent Directory + Jobs; user dropdown with profile link + sign-out
 - **Bridge JWT SSO** — Login via Bridge API key (dev) or JWT
 - **Supabase PostgreSQL** — 21,720 profiles + jobs stored with real data
@@ -100,14 +102,32 @@ Route prefix: `/api/v1/` — NOT `/api/current/` (specs reference the old prefix
 3. Upsert into `talent_profiles` table with name, company, position, bio, photo, LinkedIn, etc.
 4. Bulk sync takes ~18 minutes. Delta sync only fetches profiles where `profileSyncedAt` is null.
 
-### Job Sync Strategy
+### Job Sync Strategy (Multi-ATS)
 
-1. Portfolio companies mapped in `src/lib/sync/ats-config.ts` — currently 8 companies, 1 with Workable ATS
-2. For Workable companies: `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` (public, no auth)
-3. Each job gets `externalId: "workable:{shortcode}"` for dedup via unique constraint
+**Two-phase architecture** separates heavy discovery from lightweight refresh:
+
+1. **ATS Discovery** (weekly cron or manual): Probes portfolio company domains against 4 ATS public APIs (Workable, Greenhouse, Lever, Ashby) in parallel → saves mapping to `PortfolioAtsCache` table
+2. **Job Refresh** (every 6 hours cron): Reads cached ATS mappings → fetches jobs directly from known providers → fast, no probing
+3. Each job gets `externalId: "{provider}:{id}"` for dedup (e.g., `greenhouse:127817`, `ashby:cedc8928-...`)
 4. Upsert: existing → update fields; new → create; missing from source → set `status: 'closed'`
-5. Jobs from Workable get `source: 'workable'`; manually posted jobs get `source: 'manual'`
-6. Trigger: `POST /api/sync { "type": "jobs" }` (admin/vc only)
+5. Sources: `workable`, `greenhouse`, `lever`, `ashby`, `manual`
+6. Manual trigger: `POST /api/sync { "type": "portfolio_jobs" }` (admin/vc only)
+
+### Scheduled Cron Jobs
+
+Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by `GET /api/cron`.
+
+| Cron | Schedule | What it does |
+|---|---|---|
+| `?type=profiles` | Every 6 hours | Delta sync — fetches new/unsynced Bridge member profiles |
+| `?type=jobs` | Every 6 hours (offset) | Refreshes jobs from all cached ATS accounts (~120 companies, ~2 min) |
+| `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains for new ATS accounts (150 per run) |
+
+**Environment variables for cron:**
+- `CRON_SECRET` — Bearer token for authenticating Vercel cron requests
+- `PORTFOLIO_VC_DOMAINS` — Comma-separated VC domains (e.g., `techstars.com,angelinvest.ventures`)
+
+**Testing cron locally:** `curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron?type=jobs"`
 
 ### `/contacts/:id` Response Shape
 
@@ -158,7 +178,8 @@ bridge-talent-portal/
 │   │   │   └── introductions/page.tsx     ← Redirects to /talent
 │   │   └── api/
 │   │       ├── auth/                      ← Login, logout, me
-│   │       ├── sync/route.ts              ← Profile + job sync trigger
+│   │       ├── sync/route.ts              ← Profile + job sync trigger (manual, auth required)
+│   │       ├── cron/route.ts             ← Scheduled sync endpoint (Vercel cron, CRON_SECRET auth)
 │   │       ├── talent/                    ← Talent CRUD API
 │   │       ├── jobs/                      ← Jobs API (list, detail, apply)
 │   │       └── ...                        ← Other API routes (scaffolded)
@@ -188,8 +209,12 @@ bridge-talent-portal/
 │   │   ├── role-categories.ts             ← Role category filters for talent directory
 │   │   └── sync/
 │   │       ├── profile-sync.ts            ← Bulk/delta profile sync service
-│   │       ├── job-sync.ts                ← Job sync from Workable ATS
+│   │       ├── job-sync.ts                ← Job sync + cache-based refresh + discovery
+│   │       ├── ats-discovery.ts           ← Unified multi-ATS discovery (probes 4 providers)
 │   │       ├── workable-client.ts         ← Workable public widget API client
+│   │       ├── greenhouse-client.ts       ← Greenhouse public Job Board API client
+│   │       ├── lever-client.ts            ← Lever public Postings API client
+│   │       ├── ashby-client.ts            ← Ashby public Job Board API client
 │   │       └── ats-config.ts              ← Portfolio company → ATS provider mapping
 │   └── types/prisma.ts                    ← Re-exports Prisma models
 ├── specs/                                 ← Product spec docs
@@ -217,7 +242,8 @@ bridge-talent-portal/
 
 ### Key Models
 - **TalentProfile** — 21,720 rows with real data: firstName, lastName, email, company, position, location, bio, profilePicUrl, linkedinUrl, username, isSuperConnector, profileSyncedAt
-- **Job** — Jobs from Workable sync + manual posting. Key fields: title, description, companyDomain, source (`manual` | `workable`), externalId (unique, for dedup), status, applyUrl, workType, employmentType, experienceLevel, skillsRequired
+- **Job** — Jobs from multi-ATS sync + manual posting. Key fields: title, description, companyDomain, source (`manual` | `workable` | `greenhouse` | `lever` | `ashby`), externalId (unique, for dedup), status, applyUrl, workType, employmentType, experienceLevel, skillsRequired
+- **PortfolioAtsCache** — Caches discovered ATS mappings (companyDomain → provider + slug). Used by scheduled cron for fast job refreshes without re-probing.
 - **Application, Endorsement, Referral, TalentPool, Event** — scaffolded but not populated yet
 
 ---
@@ -232,6 +258,8 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 JWT_SESSION_SECRET=<random-string>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NODE_ENV=development
+CRON_SECRET=<random-string-for-cron-auth>
+PORTFOLIO_VC_DOMAINS=techstars.com,angelinvest.ventures,orangedao.xyz
 
 # .env (Prisma CLI only — NEVER committed)
 DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
@@ -285,8 +313,10 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Modify job filters | `src/components/jobs/job-filters.tsx` |
 | Modify job posting | `src/components/jobs/job-post-form.tsx` |
 | Modify job sync | `src/lib/sync/job-sync.ts` |
-| Add Workable ATS company | `src/lib/sync/ats-config.ts` |
-| Modify Workable client | `src/lib/sync/workable-client.ts` |
+| Modify ATS discovery | `src/lib/sync/ats-discovery.ts` |
+| Modify cron schedules | `vercel.json` + `src/app/api/cron/route.ts` |
+| Add ATS company mapping | `src/lib/sync/ats-config.ts` |
+| Modify ATS clients | `src/lib/sync/workable-client.ts`, `greenhouse-client.ts`, `lever-client.ts`, `ashby-client.ts` |
 | Add Bridge API call | `src/lib/bridge-api/users.ts` or `search.ts` |
 | Add Bridge API type | `src/lib/bridge-api/types.ts` |
 | Change DB schema | `prisma/schema.prisma` → push → generate |

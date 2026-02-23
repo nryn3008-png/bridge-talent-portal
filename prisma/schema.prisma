@@ -242,6 +242,23 @@ model BridgeSyncLog {
   @@map("bridge_sync_log")
 }
 
+// ─── Portfolio ATS Cache ─────────────────────────────────────────────────────
+// Caches which ATS provider each portfolio company uses, so scheduled syncs
+// can fetch jobs directly without re-probing all 4 providers every time.
+model PortfolioAtsCache {
+  id            String    @id @default(uuid())
+  companyDomain String    @unique @map("company_domain")
+  provider      String    // workable, greenhouse, lever, ashby
+  slug          String    // the ATS board slug that worked
+  lastSyncedAt  DateTime? @map("last_synced_at")
+  jobCount      Int       @default(0) @map("job_count")
+  lastCheckedAt DateTime  @default(now()) @map("last_checked_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@map("portfolio_ats_cache")
+}
+
 // ─── Saved Jobs ───────────────────────────────────────────────────────────────
 model SavedJob {
   id           String   @id @default(uuid())

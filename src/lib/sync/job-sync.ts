@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/db/prisma'
 import { getWorkableConfigs } from './ats-config'
 import { fetchWorkableJobs, mapWorkableJobToJobData } from './workable-client'
+import { fetchGreenhouseJobs, mapGreenhouseJobToJobData } from './greenhouse-client'
+import { fetchLeverJobs, mapLeverJobToJobData } from './lever-client'
+import { fetchAshbyJobs, mapAshbyJobToJobData } from './ashby-client'
 import { discoverAtsJobs, type AtsProvider, type MappedJobData } from './ats-discovery'
 
 interface JobSyncResult {
@@ -155,6 +158,29 @@ export async function syncJobsFromPortfolioCompanies(
         result.discovered++
 
         const stats = await syncAtsJobsForCompany(domain, discovery.provider, discovery.mappedJobs)
+
+        // Cache the discovery so future cron runs can skip probing
+        if (prisma) {
+          await prisma.portfolioAtsCache.upsert({
+            where: { companyDomain: domain },
+            create: {
+              companyDomain: domain,
+              provider: discovery.provider,
+              slug: discovery.slug,
+              lastSyncedAt: new Date(),
+              jobCount: discovery.jobCount,
+              lastCheckedAt: new Date(),
+            },
+            update: {
+              provider: discovery.provider,
+              slug: discovery.slug,
+              lastSyncedAt: new Date(),
+              jobCount: discovery.jobCount,
+              lastCheckedAt: new Date(),
+            },
+          })
+        }
+
         return { domain, provider: discovery.provider, ...stats }
       }),
     )
@@ -190,4 +216,219 @@ export async function syncJobsFromPortfolioCompanies(
 
   console.log(`[portfolio-job-sync] Complete: ${result.discovered} ATS accounts found, ${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated`)
   return result
+}
+
+/**
+ * Fetch jobs directly from all cached ATS accounts (no discovery probing needed).
+ * Used by the scheduled cron job for fast, frequent refreshes.
+ * Reads PortfolioAtsCache → fetches jobs from known provider → upserts into DB.
+ */
+export async function syncJobsFromCache(): Promise<JobSyncResult> {
+  if (!prisma) throw new Error('Database not available — check DATABASE_URL')
+  const db = prisma // Non-null local ref for use in closures
+
+  const result: JobSyncResult = { created: 0, updated: 0, deactivated: 0, discovered: 0, errors: 0, details: [] }
+
+  // Get all cached ATS mappings
+  const cachedAccounts = await db.portfolioAtsCache.findMany()
+  console.log(`[cron-job-sync] Refreshing jobs from ${cachedAccounts.length} cached ATS accounts...`)
+
+  if (cachedAccounts.length === 0) {
+    console.log('[cron-job-sync] No cached ATS accounts found. Run discovery first.')
+    return result
+  }
+
+  // Process in batches of 5 (direct fetches, no probing — so we can be more aggressive)
+  const batchSize = 5
+  for (let i = 0; i < cachedAccounts.length; i += batchSize) {
+    const batch = cachedAccounts.slice(i, i + batchSize)
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async (cached) => {
+        const mappedJobs = await fetchJobsFromProvider(cached.provider as AtsProvider, cached.slug, cached.companyDomain)
+        const stats = await syncAtsJobsForCompany(cached.companyDomain, cached.provider as AtsProvider, mappedJobs)
+
+        // Update cache with latest sync info
+        await db.portfolioAtsCache.update({
+          where: { companyDomain: cached.companyDomain },
+          data: { lastSyncedAt: new Date(), jobCount: mappedJobs.length },
+        })
+
+        return { domain: cached.companyDomain, provider: cached.provider, ...stats }
+      }),
+    )
+
+    for (const r of batchResults) {
+      if (r.status === 'fulfilled') {
+        const { domain, provider, created, updated, deactivated } = r.value
+        result.created += created
+        result.updated += updated
+        result.deactivated += deactivated
+        result.details.push({ company: domain, provider, created, updated, deactivated })
+      } else {
+        result.errors++
+        const message = r.reason instanceof Error ? r.reason.message : String(r.reason)
+        console.error(`[cron-job-sync] Error:`, message)
+      }
+    }
+  }
+
+  // Also sync static ATS configs (e.g., Quantive via Workable)
+  const staticResult = await syncJobsFromAts()
+  result.created += staticResult.created
+  result.updated += staticResult.updated
+  result.deactivated += staticResult.deactivated
+  result.details.push(...staticResult.details)
+
+  // Log the sync
+  await db.bridgeSyncLog.create({
+    data: {
+      syncType: 'delta',
+      entityType: 'jobs',
+      lastSyncedAt: new Date(),
+      recordsSynced: result.created + result.updated,
+      status: 'completed',
+      errorMessage: result.errors > 0
+        ? `${result.errors} errors during cron job sync`
+        : null,
+    },
+  })
+
+  console.log(`[cron-job-sync] Complete: ${result.created} created, ${result.updated} updated, ${result.deactivated} deactivated from ${cachedAccounts.length} cached accounts`)
+  return result
+}
+
+/**
+ * Discover new ATS accounts from portfolio company domains that aren't yet cached.
+ * Used by the weekly cron job. Processes in chunks to stay within timeout limits.
+ */
+export async function discoverNewAtsAccounts(
+  companyDomains: string[],
+  maxToCheck: number = 150,
+): Promise<JobSyncResult> {
+  if (!prisma) throw new Error('Database not available — check DATABASE_URL')
+  const db = prisma // Non-null local ref for use in closures
+
+  const result: JobSyncResult = { created: 0, updated: 0, deactivated: 0, discovered: 0, errors: 0, details: [] }
+
+  // Get already-cached domains to skip them
+  const cachedDomains = new Set(
+    (await db.portfolioAtsCache.findMany({ select: { companyDomain: true } }))
+      .map((c) => c.companyDomain),
+  )
+  const staticDomains = new Set(getWorkableConfigs().map((c) => c.companyDomain))
+
+  // Filter to only unchecked domains
+  const uncheckedDomains = companyDomains.filter(
+    (d) => !cachedDomains.has(d) && !staticDomains.has(d),
+  )
+
+  // Limit to maxToCheck per run to stay within Vercel timeout
+  const domainsToCheck = uncheckedDomains.slice(0, maxToCheck)
+  console.log(`[cron-discovery] Probing ${domainsToCheck.length} unchecked domains (${uncheckedDomains.length} total unchecked, ${cachedDomains.size} already cached)...`)
+
+  if (domainsToCheck.length === 0) {
+    console.log('[cron-discovery] All portfolio company domains have been checked.')
+    return result
+  }
+
+  // Process in batches of 3 (same as portfolio sync — probing is heavier)
+  const batchSize = 3
+  for (let i = 0; i < domainsToCheck.length; i += batchSize) {
+    const batch = domainsToCheck.slice(i, i + batchSize)
+
+    const batchResults = await Promise.allSettled(
+      batch.map(async (domain) => {
+        const discovery = await discoverAtsJobs(domain)
+        if (!discovery) return null
+
+        console.log(`[cron-discovery] Found ${discovery.provider} for ${domain} (slug: ${discovery.slug}, ${discovery.jobCount} jobs)`)
+        result.discovered++
+
+        const stats = await syncAtsJobsForCompany(domain, discovery.provider, discovery.mappedJobs)
+
+        // Cache the discovery
+        await db.portfolioAtsCache.upsert({
+          where: { companyDomain: domain },
+          create: {
+            companyDomain: domain,
+            provider: discovery.provider,
+            slug: discovery.slug,
+            lastSyncedAt: new Date(),
+            jobCount: discovery.jobCount,
+            lastCheckedAt: new Date(),
+          },
+          update: {
+            provider: discovery.provider,
+            slug: discovery.slug,
+            lastSyncedAt: new Date(),
+            jobCount: discovery.jobCount,
+            lastCheckedAt: new Date(),
+          },
+        })
+
+        return { domain, provider: discovery.provider, ...stats }
+      }),
+    )
+
+    for (const r of batchResults) {
+      if (r.status === 'fulfilled' && r.value) {
+        const { domain, provider, created, updated, deactivated } = r.value
+        result.created += created
+        result.updated += updated
+        result.deactivated += deactivated
+        result.details.push({ company: domain, provider, created, updated, deactivated })
+      } else if (r.status === 'rejected') {
+        result.errors++
+      }
+    }
+  }
+
+  // Log the discovery
+  await db.bridgeSyncLog.create({
+    data: {
+      syncType: 'bulk',
+      entityType: 'portfolio_jobs',
+      lastSyncedAt: new Date(),
+      recordsSynced: result.discovered,
+      status: 'completed',
+      errorMessage: result.errors > 0
+        ? `${result.errors} errors during cron discovery`
+        : null,
+    },
+  })
+
+  console.log(`[cron-discovery] Complete: ${result.discovered} new ATS accounts found from ${domainsToCheck.length} checked`)
+  return result
+}
+
+/**
+ * Fetch jobs from a known ATS provider and slug (no discovery probing).
+ * Used by syncJobsFromCache for fast direct fetching.
+ */
+async function fetchJobsFromProvider(
+  provider: AtsProvider,
+  slug: string,
+  companyDomain: string,
+): Promise<MappedJobData[]> {
+  switch (provider) {
+    case 'workable': {
+      const jobs = await fetchWorkableJobs(slug)
+      return jobs.map((j) => mapWorkableJobToJobData(j, companyDomain))
+    }
+    case 'greenhouse': {
+      const jobs = await fetchGreenhouseJobs(slug)
+      return jobs.map((j) => mapGreenhouseJobToJobData(j, companyDomain))
+    }
+    case 'lever': {
+      const jobs = await fetchLeverJobs(slug)
+      return jobs.map((j) => mapLeverJobToJobData(j, companyDomain))
+    }
+    case 'ashby': {
+      const jobs = await fetchAshbyJobs(slug)
+      return jobs.map((j) => mapAshbyJobToJobData(j, companyDomain))
+    }
+    default:
+      throw new Error(`Unknown ATS provider: ${provider}`)
+  }
 }
