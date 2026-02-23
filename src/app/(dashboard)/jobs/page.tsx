@@ -5,6 +5,8 @@ import { JobCard } from '@/components/jobs/job-card'
 import { JobFilters } from '@/components/jobs/job-filters'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { fetchPortfolioCompanies } from '@/lib/bridge-api/portfolio'
+import { fetchVcDetails } from '@/lib/bridge-api/portfolio'
 
 interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>
@@ -20,8 +22,32 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const employmentType = params.employment_type || ''
   const experienceLevel = params.experience_level || ''
   const companyDomain = params.company || ''
+  const vcDomain = params.vc || ''
   const page = Math.max(1, parseInt(params.page || '1'))
   const perPage = 20
+
+  // Fetch VC network names for the filter dropdown
+  const networkDomains = session.networkDomains ?? []
+  const vcNetworks: Array<{ domain: string; name: string }> = []
+  for (const nd of networkDomains) {
+    try {
+      const details = await fetchVcDetails(nd)
+      vcNetworks.push({ domain: nd, name: details.title || nd })
+    } catch {
+      vcNetworks.push({ domain: nd, name: nd })
+    }
+  }
+
+  // If filtering by VC, get that VC's portfolio company domains
+  let vcCompanyDomains: string[] | null = null
+  if (vcDomain) {
+    try {
+      const companies = await fetchPortfolioCompanies(vcDomain)
+      vcCompanyDomains = companies.map((c) => c.domain)
+    } catch {
+      vcCompanyDomains = []
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let jobs: any[] = []
@@ -42,6 +68,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
       ...(employmentType && { employmentType }),
       ...(experienceLevel && { experienceLevel }),
       ...(companyDomain && { companyDomain }),
+      ...(vcCompanyDomains && { companyDomain: { in: vcCompanyDomains } }),
     }
 
     ;[jobs, total] = await Promise.all([
@@ -64,8 +91,11 @@ export default async function JobsPage({ searchParams }: PageProps) {
     if (workType) parts.push(`work_type=${workType}`)
     if (employmentType) parts.push(`employment_type=${employmentType}`)
     if (experienceLevel) parts.push(`experience_level=${experienceLevel}`)
+    if (vcDomain) parts.push(`vc=${encodeURIComponent(vcDomain)}`)
     return parts.join('&')
   }
+
+  const hasAnyFilter = query || workType || employmentType || experienceLevel || vcDomain
 
   return (
     <div className="p-8">
@@ -87,7 +117,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
         </div>
 
         <div className="mb-6">
-          <JobFilters />
+          <JobFilters vcNetworks={vcNetworks} />
         </div>
 
         {jobs.length > 0 ? (
@@ -100,11 +130,11 @@ export default async function JobsPage({ searchParams }: PageProps) {
           <div className="text-center py-16">
             <h3 className="text-lg font-semibold mb-2">No jobs found</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {query || workType || employmentType
+              {hasAnyFilter
                 ? 'Try adjusting your filters or search terms.'
                 : 'No jobs have been posted yet. Check back soon!'}
             </p>
-            {(query || workType || employmentType) && (
+            {hasAnyFilter && (
               <Link href="/jobs" className="text-sm text-primary hover:underline">
                 Clear all filters
               </Link>

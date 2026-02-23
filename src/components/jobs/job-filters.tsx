@@ -12,7 +12,16 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 
-export function JobFilters() {
+interface VcNetwork {
+  domain: string
+  name: string
+}
+
+interface JobFiltersProps {
+  vcNetworks?: VcNetwork[]
+}
+
+export function JobFilters({ vcNetworks }: JobFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -103,6 +112,25 @@ export function JobFilters() {
             <SelectItem value="executive">Executive</SelectItem>
           </SelectContent>
         </Select>
+
+        {vcNetworks && vcNetworks.length > 0 && (
+          <Select
+            value={searchParams.get('vc') ?? 'all'}
+            onValueChange={(v) => updateParam('vc', v)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="VC Network" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Networks</SelectItem>
+              {vcNetworks.map((vc) => (
+                <SelectItem key={vc.domain} value={vc.domain}>
+                  {vc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>

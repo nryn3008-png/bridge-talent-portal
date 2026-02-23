@@ -61,6 +61,25 @@ function MatchScoreBadge({ score }: { score: number }) {
   )
 }
 
+function CompanyFavicon({ domain }: { domain: string }) {
+  return (
+    <div className="relative flex-shrink-0 w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden">
+      {/* Initials fallback (rendered behind favicon) */}
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-500">
+        {domain.charAt(0).toUpperCase()}
+      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+        alt=""
+        width={20}
+        height={20}
+        className="rounded-sm relative z-10"
+      />
+    </div>
+  )
+}
+
 export function JobCard({ job, matchScore, connectionsCount, showApplyButton = true }: JobCardProps) {
   const salaryText =
     job.showSalary && job.salaryMin
@@ -77,9 +96,10 @@ export function JobCard({ job, matchScore, connectionsCount, showApplyButton = t
       <CardContent className="p-5">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
+          <CompanyFavicon domain={job.companyDomain} />
           <div className="flex-1 min-w-0">
             {/* Company domain */}
-            <p className="text-xs text-muted-foreground mb-1">{job.companyDomain}</p>
+            <p className="text-xs text-muted-foreground mb-0.5">{job.companyDomain}</p>
             {/* Title */}
             <Link href={`/jobs/${job.id}`} className="hover:underline">
               <h3 className="font-semibold text-base text-gray-900 leading-snug">{job.title}</h3>
