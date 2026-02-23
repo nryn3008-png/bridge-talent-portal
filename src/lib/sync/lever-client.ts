@@ -103,9 +103,7 @@ function mapWorkplaceType(type: string): string | null {
 }
 
 export function mapLeverJobToJobData(job: LeverJob, companyDomain: string) {
-  const description = job.descriptionPlain
-    ? job.descriptionPlain.slice(0, 2000)
-    : `Apply for ${job.text} at ${companyDomain}.`
+  const description = job.description || job.descriptionPlain || `Apply for ${job.text} at ${companyDomain}.`
 
   return {
     title: job.text,

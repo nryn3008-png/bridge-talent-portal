@@ -72,12 +72,8 @@ export async function tryGreenhouseDiscovery(
   return null
 }
 
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-}
-
 export function mapGreenhouseJobToJobData(job: GreenhouseJob, companyDomain: string) {
-  const description = job.content ? stripHtml(job.content).slice(0, 2000) : `Apply for ${job.title} at ${companyDomain}.`
+  const description = job.content || `Apply for ${job.title} at ${companyDomain}.`
   const department = job.departments?.[0]?.name || null
 
   return {

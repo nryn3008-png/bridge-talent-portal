@@ -114,9 +114,16 @@ export default async function JobDetailPage({ params }: PageProps) {
             <CardTitle>About the Role</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-              {job.description}
-            </div>
+            {/<[a-z][\s\S]*>/i.test(job.description) ? (
+              <div
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: job.description }}
+              />
+            ) : (
+              <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                {job.description}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -126,9 +133,16 @@ export default async function JobDetailPage({ params }: PageProps) {
               <CardTitle>Requirements</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none whitespace-pre-wrap">
-                {job.requirements}
-              </div>
+              {/<[a-z][\s\S]*>/i.test(job.requirements) ? (
+                <div
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: job.requirements }}
+                />
+              ) : (
+                <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+                  {job.requirements}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

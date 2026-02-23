@@ -104,9 +104,7 @@ function mapWorkplaceType(type: string, isRemote: boolean): string | null {
 }
 
 export function mapAshbyJobToJobData(job: AshbyJob, companyDomain: string) {
-  const description = job.descriptionPlain
-    ? job.descriptionPlain.slice(0, 2000)
-    : `Apply for ${job.title} at ${companyDomain}.`
+  const description = job.descriptionHtml || job.descriptionPlain || `Apply for ${job.title} at ${companyDomain}.`
 
   return {
     title: job.title,
