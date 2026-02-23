@@ -115,7 +115,7 @@ export function TopNav({ session }: TopNavProps) {
               </span>
             </div>
             <Link
-              href={`/talent/${session.userId}`}
+              href="/profile"
               onClick={() => setMenuOpen(false)}
               className="block px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
