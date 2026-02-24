@@ -14,11 +14,11 @@ export default async function PostJobPage() {
   const defaultDomain = session.networkDomains?.[0] || ''
 
   return (
-    <div className="p-8">
+    <div className="px-8 pt-6 pb-8">
       <div className="max-w-3xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Post a Job</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+        <div className="page-header">
+          <h1 className="text-3xl font-bold tracking-tight">Post a Job</h1>
+          <p className="text-muted-foreground mt-1">
             Create a new job listing visible to the Bridge network
           </p>
         </div>

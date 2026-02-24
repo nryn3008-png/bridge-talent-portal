@@ -1,24 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import { TalentCard } from './talent-card'
-import { TalentSearchBar } from './talent-search-bar'
 import type { BridgeMember } from '@/lib/bridge-api/types'
-
-interface RoleCategoryInfo {
-  id: string
-  label: string
-}
+import { SearchX, X } from 'lucide-react'
 
 interface TalentDirectoryClientProps {
   members: BridgeMember[]
   totalCount: number
-  page: number
-  totalPages: number
   query?: string
   activeRole?: string
-  roleCategories?: RoleCategoryInfo[]
   companyFilter?: string
 }
 
@@ -27,29 +18,18 @@ export function TalentDirectoryClient({
   totalCount,
   query,
   activeRole,
-  roleCategories,
   companyFilter,
 }: TalentDirectoryClientProps) {
-  const searchParams = useSearchParams()
-
-  // Build filter URL preserving search query and company filter
-  function buildFilterUrl(roleId?: string) {
-    const params = new URLSearchParams()
-    const q = searchParams.get('q')
-    if (q) params.set('q', q)
-    if (roleId) params.set('role', roleId)
-    const company = searchParams.get('company')
-    if (company) params.set('company', company)
-    const qs = params.toString()
-    return `/talent${qs ? `?${qs}` : ''}`
-  }
-
+  /* Empty state — no data at all (ux-copywriter: What this area shows + How to fill it) */
   if (totalCount === 0 && !activeRole && !query && !companyFilter) {
     return (
-      <div className="text-center py-16 max-w-lg mx-auto">
-        <h3 className="text-lg font-semibold mb-2">No network members found</h3>
-        <p className="text-sm text-muted-foreground">
-          Could not fetch member data from the Bridge API. Check your BRIDGE_API_KEY in .env.local.
+      <div className="empty-state">
+        <div className="empty-state-icon">
+          <SearchX className="w-5 h-5 text-[#9A9FB0]" />
+        </div>
+        <h3 className="text-base font-bold text-[#0D1531] mb-2">No members yet</h3>
+        <p className="text-[14px] text-[#676C7E]">
+          Members will appear here after syncing. Check your API key in .env.local.
         </p>
       </div>
     )
@@ -57,74 +37,41 @@ export function TalentDirectoryClient({
 
   return (
     <div>
-      {/* Search bar */}
-      <div className="mb-4">
-        <TalentSearchBar />
-      </div>
-
-      {/* Company filter badge */}
+      {/* Company filter badge — Bridge badge style (4px radius) */}
       {companyFilter && (
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm text-muted-foreground">Showing members at</span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full">
+          <span className="text-[13px] text-[#676C7E]">Showing members at</span>
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#E6EBFF] text-[#0038FF] text-[12px] font-medium rounded border border-[#E6EEFF]">
             {companyFilter}
-            <Link href="/talent" className="hover:text-primary/70 ml-0.5">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
+            <Link href="/talent" className="hover:text-[#0036D7] transition-colors duration-150">
+              <X className="w-3 h-3" />
             </Link>
           </span>
         </div>
       )}
 
-      {/* Role filter chips */}
-      {roleCategories && roleCategories.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          <Link
-            href={buildFilterUrl()}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              !activeRole
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-            }`}
-          >
-            All
-          </Link>
-          {roleCategories.map((cat) => (
-            <Link
-              key={cat.id}
-              href={buildFilterUrl(cat.id)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                activeRole === cat.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
-              }`}
-            >
-              {cat.label}
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Empty state for filtered results */}
+      {/* Empty state — filtered (ux-copywriter: What happened + What to do) */}
       {totalCount === 0 && (activeRole || query || companyFilter) && (
-        <div className="text-center py-16 max-w-lg mx-auto">
-          <h3 className="text-lg font-semibold mb-2">No members match your filters</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Try a different role category or adjust your search terms.
+        <div className="empty-state">
+          <div className="empty-state-icon">
+            <SearchX className="w-5 h-5 text-[#9A9FB0]" />
+          </div>
+          <h3 className="text-base font-bold text-[#0D1531] mb-2">No matches found</h3>
+          <p className="text-[14px] text-[#676C7E] mb-4">
+            Try adjusting your search or filters.
           </p>
           <Link
             href="/talent"
-            className="text-sm text-primary hover:underline"
+            className="text-[14px] font-semibold text-[#0038FF] hover:text-[#0036D7] transition-colors duration-150"
           >
-            Clear all filters
+            Clear filters
           </Link>
         </div>
       )}
 
-      {/* Member grid */}
+      {/* Member grid — 16px gap, staggered entrance */}
       {totalCount > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-stagger">
           {members.map((member) => (
             <TalentCard key={member.id} member={member} />
           ))}

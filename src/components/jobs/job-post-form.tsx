@@ -88,7 +88,7 @@ export function JobPostForm({ defaultDomain }: JobPostFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
+      <Card className="card-elevated">
         <CardContent className="pt-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="title">Job Title *</Label>
@@ -136,7 +136,7 @@ export function JobPostForm({ defaultDomain }: JobPostFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="card-elevated">
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -207,7 +207,7 @@ export function JobPostForm({ defaultDomain }: JobPostFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="card-elevated">
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">

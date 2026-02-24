@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Mulish } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-// Design spec: Inter font family
-const inter = Inter({
-  variable: "--font-inter",
+// Bridge Design System: Mulish font family
+const mulish = Mulish({
+  variable: "--font-mulish",
   subsets: ["latin"],
   display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>
+      <body className={`${mulish.variable} antialiased`}>
         {children}
         <Toaster />
       </body>

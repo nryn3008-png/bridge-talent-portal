@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { LayoutGrid, List } from 'lucide-react'
 
 interface ViewToggleProps {
   activeView: string
@@ -16,40 +17,34 @@ export function ViewToggle({ activeView }: ViewToggleProps) {
     if (q) params.set('q', q)
     if (view === 'companies') {
       params.set('view', 'companies')
-      // Drop role and company params — not applicable to companies view
     }
-    // For people view, don't set view param (it's the default)
     const qs = params.toString()
     router.push(`/talent${qs ? `?${qs}` : ''}`)
   }
 
   return (
-    <div className="flex gap-1 border-b mb-4">
+    <div className="inline-flex items-center gap-1 p-[3px] rounded-full bg-[#F9F9FA] border border-[#ECEDF0] h-[37px] flex-shrink-0">
       <button
         onClick={() => handleViewChange('people')}
-        className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+        className={`inline-flex items-center gap-1.5 px-3 h-[31px] text-[13px] font-bold rounded-full transition-all duration-150 ${
           activeView === 'people'
-            ? 'text-foreground'
-            : 'text-muted-foreground hover:text-foreground'
+            ? 'bg-white text-[#0D1531] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]'
+            : 'text-[#81879C] hover:text-[#0D1531]'
         }`}
       >
+        <LayoutGrid className="w-3.5 h-3.5" />
         People
-        {activeView === 'people' && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-        )}
       </button>
       <button
         onClick={() => handleViewChange('companies')}
-        className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+        className={`inline-flex items-center gap-1.5 px-3 h-[31px] text-[13px] font-bold rounded-full transition-all duration-150 ${
           activeView === 'companies'
-            ? 'text-foreground'
-            : 'text-muted-foreground hover:text-foreground'
+            ? 'bg-white text-[#0D1531] shadow-[0px_1px_2px_rgba(0,0,0,0.05)]'
+            : 'text-[#81879C] hover:text-[#0D1531]'
         }`}
       >
+        <List className="w-3.5 h-3.5" />
         Companies
-        {activeView === 'companies' && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-        )}
       </button>
     </div>
   )

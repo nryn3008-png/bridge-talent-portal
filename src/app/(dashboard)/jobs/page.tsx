@@ -104,12 +104,12 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const hasAnyFilter = query || workType || employmentType || experienceLevel || vcDomain
 
   return (
-    <div className="p-8">
+    <div className="px-8 pt-6 pb-8">
       <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+        <div className="page-header flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Job Board</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <h1 className="text-3xl font-bold tracking-tight">Job Board</h1>
+            <p className="text-muted-foreground mt-1">
               {total > 0
                 ? `${total} open position${total !== 1 ? 's' : ''} across Bridge portfolio companies`
                 : 'Opportunities at Bridge portfolio companies'}
@@ -127,13 +127,16 @@ export default async function JobsPage({ searchParams }: PageProps) {
         </div>
 
         {jobs.length > 0 ? (
-          <div className="grid gap-4">
+          <div className="grid gap-4 animate-stagger">
             {jobs.map((job) => (
               <JobCard key={job.id} job={job} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-16">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+            </div>
             <h3 className="text-lg font-semibold mb-2">No jobs found</h3>
             <p className="text-sm text-muted-foreground mb-4">
               {hasAnyFilter
@@ -149,24 +152,46 @@ export default async function JobsPage({ searchParams }: PageProps) {
         )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-8">
+          <div className="flex items-center justify-center gap-1.5 mt-8">
             {page > 1 && (
               <a
                 href={buildUrl(page - 1)}
-                className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-sm hover:bg-muted transition-colors"
               >
-                Previous
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               </a>
             )}
-            <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
+            {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+              let pageNum: number
+              if (totalPages <= 7) {
+                pageNum = i + 1
+              } else if (page <= 4) {
+                pageNum = i + 1
+              } else if (page >= totalPages - 3) {
+                pageNum = totalPages - 6 + i
+              } else {
+                pageNum = page - 3 + i
+              }
+              return (
+                <a
+                  key={pageNum}
+                  href={buildUrl(pageNum)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
+                    pageNum === page
+                      ? 'bg-primary text-primary-foreground'
+                      : 'hover:bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {pageNum}
+                </a>
+              )
+            })}
             {page < totalPages && (
               <a
                 href={buildUrl(page + 1)}
-                className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
+                className="w-9 h-9 flex items-center justify-center rounded-full text-sm hover:bg-muted transition-colors"
               >
-                Next
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </a>
             )}
           </div>

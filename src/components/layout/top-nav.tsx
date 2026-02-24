@@ -3,29 +3,32 @@
 import type { SessionPayload } from '@/lib/auth/session'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState, useRef, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { User, LogOut, ChevronDown } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface TopNavProps {
   session: SessionPayload
 }
 
+const NAV_LINKS = [
+  { href: '/talent', label: 'Talent Directory' },
+  { href: '/jobs', label: 'Jobs' },
+  { href: '/portfolio', label: 'Portfolio' },
+] as const
+
 export function TopNav({ session }: TopNavProps) {
   const router = useRouter()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
   const initials = `${session.firstName?.[0] ?? ''}${session.lastName?.[0] ?? ''}`.toUpperCase()
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
-    }
-    if (menuOpen) document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [menuOpen])
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -35,7 +38,7 @@ export function TopNav({ session }: TopNavProps) {
   }
 
   return (
-    <header className="h-16 border-b bg-card flex items-center px-6 fixed top-0 left-0 right-0 z-50">
+    <header className="h-16 glass-nav flex items-center px-6 fixed top-0 left-0 right-0 z-50">
       {/* Logo */}
       <Link href="/talent" className="flex items-center flex-shrink-0">
         <Image
@@ -51,85 +54,77 @@ export function TopNav({ session }: TopNavProps) {
       <div className="flex-1" />
 
       {/* Nav links */}
-      <Link
-        href="/talent"
-        className="hidden sm:flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mr-4"
-      >
-        Talent Directory
-      </Link>
-      <Link
-        href="/jobs"
-        className="hidden sm:flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mr-4"
-      >
-        Jobs
-      </Link>
-      <Link
-        href="/portfolio"
-        className="hidden sm:flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mr-4"
-      >
-        Portfolio
-      </Link>
+      <nav className="hidden sm:flex items-center gap-1 mr-4">
+        {NAV_LINKS.map(({ href, label }) => {
+          const isActive = pathname === href || pathname.startsWith(href + '/')
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-primary/10 text-primary rounded-full'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-full'
+              }`}
+            >
+              {label}
+            </Link>
+          )
+        })}
+      </nav>
 
       {/* User menu */}
-      <div className="relative" ref={menuRef}>
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="flex items-center gap-2 rounded-full p-1 hover:bg-muted transition-colors"
-        >
-          {session.profilePicUrl ? (
-            <Image
-              src={session.profilePicUrl}
-              alt={`${session.firstName} ${session.lastName}`}
-              width={36}
-              height={36}
-              className="w-9 h-9 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-semibold text-sm">{initials}</span>
-            </div>
-          )}
-          <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">
-            {session.firstName}
-          </span>
-          <svg
-            className={`w-4 h-4 text-muted-foreground transition-transform ${menuOpen ? 'rotate-180' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 rounded-full p-1 hover:bg-muted/60 transition-colors outline-none">
+            {session.profilePicUrl ? (
+              <Image
+                src={session.profilePicUrl}
+                alt={`${session.firstName} ${session.lastName}`}
+                width={36}
+                height={36}
+                className="w-9 h-9 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                <span className="text-primary font-semibold text-sm">{initials}</span>
+              </div>
+            )}
+            <span className="hidden sm:block text-sm font-medium max-w-[120px] truncate">
+              {session.firstName}
+            </span>
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
 
-        {menuOpen && (
-          <div className="absolute right-0 mt-2 w-56 rounded-lg border bg-card shadow-lg py-1 z-50">
-            <div className="px-4 py-3 border-b">
-              <p className="text-sm font-medium truncate">
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none truncate">
                 {session.firstName} {session.lastName}
               </p>
-              <p className="text-xs text-muted-foreground truncate">{session.email}</p>
-              <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-full text-xs font-medium capitalize bg-primary/10 text-primary">
+              <p className="text-xs text-muted-foreground leading-none truncate">
+                {session.email}
+              </p>
+              <span className="inline-flex items-center mt-1.5 w-fit px-2 py-0.5 rounded-full text-xs font-medium capitalize bg-primary/10 text-primary">
                 {session.role}
               </span>
             </div>
-            <Link
-              href="/profile"
-              onClick={() => setMenuOpen(false)}
-              className="block px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/profile" className="cursor-pointer">
+              <User className="mr-2 h-4 w-4" />
               Your Profile
             </Link>
-            <button
-              onClick={handleLogout}
-              className="w-full text-left px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        )}
-      </div>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   )
 }

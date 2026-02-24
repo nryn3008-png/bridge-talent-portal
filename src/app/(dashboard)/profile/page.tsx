@@ -13,12 +13,14 @@ export default async function ProfilePage() {
     user = await getCurrentUser(session.bridgeJwt)
   } catch {
     return (
-      <div className="p-6">
+      <div className="px-8 pt-6 pb-8">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold mb-1">My Profile</h1>
-          <p className="text-sm text-muted-foreground mb-6">
-            Could not load your Bridge profile. Please try again.
-          </p>
+          <div className="page-header">
+            <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
+            <p className="text-muted-foreground mt-1">
+              Could not load your Bridge profile. Please try again.
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -29,15 +31,15 @@ export default async function ProfilePage() {
   const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
 
   return (
-    <div className="p-6">
+    <div className="px-8 pt-6 pb-8">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-1">My Profile</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          Your Bridge network profile
-        </p>
+        <div className="page-header">
+          <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
+          <p className="text-muted-foreground mt-1">Your Bridge network profile</p>
+        </div>
 
         {/* Bridge profile */}
-        <Card className="mb-6">
+        <Card className="card-elevated mb-6">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
               {user.profile_pic_url ? (
@@ -49,7 +51,7 @@ export default async function ProfilePage() {
                   className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
                   <span className="text-primary font-bold text-xl">{initials}</span>
                 </div>
               )}
@@ -98,7 +100,7 @@ export default async function ProfilePage() {
 
         {/* ICP */}
         {user.icp && user.icp.public && (
-          <Card className="mb-6">
+          <Card className="card-elevated mb-6">
             <CardHeader>
               <CardTitle>Background & Interests</CardTitle>
             </CardHeader>
@@ -129,7 +131,7 @@ export default async function ProfilePage() {
 
         {/* Networks */}
         {user.network_domains && user.network_domains.length > 0 && (
-          <Card>
+          <Card className="card-elevated">
             <CardHeader>
               <CardTitle>Networks</CardTitle>
             </CardHeader>

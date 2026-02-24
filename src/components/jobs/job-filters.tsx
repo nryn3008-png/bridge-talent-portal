@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Search } from 'lucide-react'
 
 interface VcNetwork {
   domain: string
@@ -54,14 +55,17 @@ export function JobFilters({ vcNetworks }: JobFiltersProps) {
 
   return (
     <div className="space-y-3">
-      <form onSubmit={handleSearch} className="flex gap-2">
+      <form onSubmit={handleSearch} className="flex gap-2 max-w-2xl">
         <Input
           name="q"
           placeholder="Search jobs..."
           defaultValue={searchParams.get('q') ?? ''}
-          className="flex-1"
+          className="flex-1 h-11 search-elevated border-0 bg-white"
         />
-        <Button type="submit">Search</Button>
+        <Button type="submit" className="h-11 px-5">
+          <Search className="w-4 h-4 mr-1.5" />
+          Search
+        </Button>
       </form>
 
       <div className="flex flex-wrap gap-2">
@@ -69,7 +73,7 @@ export function JobFilters({ vcNetworks }: JobFiltersProps) {
           value={searchParams.get('work_type') ?? 'all'}
           onValueChange={(v) => updateParam('work_type', v)}
         >
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-36 bg-white search-elevated border-0">
             <SelectValue placeholder="Work type" />
           </SelectTrigger>
           <SelectContent>
@@ -84,7 +88,7 @@ export function JobFilters({ vcNetworks }: JobFiltersProps) {
           value={searchParams.get('employment_type') ?? 'all'}
           onValueChange={(v) => updateParam('employment_type', v)}
         >
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-36 bg-white search-elevated border-0">
             <SelectValue placeholder="Job type" />
           </SelectTrigger>
           <SelectContent>
@@ -100,7 +104,7 @@ export function JobFilters({ vcNetworks }: JobFiltersProps) {
           value={searchParams.get('experience_level') ?? 'all'}
           onValueChange={(v) => updateParam('experience_level', v)}
         >
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-36 bg-white search-elevated border-0">
             <SelectValue placeholder="Level" />
           </SelectTrigger>
           <SelectContent>
@@ -118,7 +122,7 @@ export function JobFilters({ vcNetworks }: JobFiltersProps) {
             value={searchParams.get('vc') ?? 'all'}
             onValueChange={(v) => updateParam('vc', v)}
           >
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-44 bg-white search-elevated border-0">
               <SelectValue placeholder="VC Network" />
             </SelectTrigger>
             <SelectContent>

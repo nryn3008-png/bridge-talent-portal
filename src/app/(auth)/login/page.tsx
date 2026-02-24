@@ -52,27 +52,31 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="gradient-login-bg flex items-center justify-center relative overflow-hidden">
+      {/* Decorative blurs */}
+      <div className="absolute top-1/4 -left-32 w-96 h-96 rounded-full bg-primary/10 blur-3xl" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 rounded-full bg-primary/8 blur-3xl" />
+
+      <Card className="w-full max-w-md shadow-elevated border-0 bg-white/95 backdrop-blur-sm relative z-10">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-2">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">B</span>
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
+              <span className="text-primary-foreground font-bold text-xl">B</span>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Bridge Talent Portal</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">Bridge Talent Portal</CardTitle>
           <CardDescription>Sign in with your Bridge account</CardDescription>
         </CardHeader>
         <CardContent>
           {/* Mode tabs — only show API key tab in dev */}
           {isDev && (
-            <div className="flex rounded-lg border border-border p-1 mb-5 gap-1">
+            <div className="flex rounded-full bg-muted p-1 mb-5 gap-1">
               <button
                 type="button"
                 onClick={() => setMode('apikey')}
-                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                className={`flex-1 py-1.5 text-sm font-medium rounded-full transition-all ${
                   mode === 'apikey'
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-white text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -81,9 +85,9 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setMode('password')}
-                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                className={`flex-1 py-1.5 text-sm font-medium rounded-full transition-all ${
                   mode === 'password'
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-white text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >

@@ -63,17 +63,17 @@ function MatchScoreBadge({ score }: { score: number }) {
 
 function CompanyFavicon({ domain }: { domain: string }) {
   return (
-    <div className="relative flex-shrink-0 w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden">
+    <div className="relative flex-shrink-0 w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center overflow-hidden">
       {/* Initials fallback (rendered behind favicon) */}
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-gray-500">
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-muted-foreground">
         {domain.charAt(0).toUpperCase()}
       </span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
         alt=""
-        width={20}
-        height={20}
+        width={22}
+        height={22}
         className="rounded-sm relative z-10"
       />
     </div>
@@ -92,7 +92,7 @@ export function JobCard({ job, matchScore, connectionsCount, showApplyButton = t
   const previewText = job.description.replace(/<[^>]*>/g, '').slice(0, 160)
 
   return (
-    <Card className="hover:shadow-md transition-shadow border border-gray-200 rounded-lg">
+    <Card className="card-elevated group rounded-lg">
       <CardContent className="p-5">
         {/* Header row */}
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -102,7 +102,7 @@ export function JobCard({ job, matchScore, connectionsCount, showApplyButton = t
             <p className="text-xs text-muted-foreground mb-0.5">{job.companyDomain}</p>
             {/* Title */}
             <Link href={`/jobs/${job.id}`} className="hover:underline">
-              <h3 className="font-semibold text-base text-gray-900 leading-snug">{job.title}</h3>
+              <h3 className="font-semibold text-base text-foreground group-hover:text-primary transition-colors leading-snug">{job.title}</h3>
             </Link>
             {/* Location */}
             {job.location && (
@@ -129,7 +129,7 @@ export function JobCard({ job, matchScore, connectionsCount, showApplyButton = t
             {job.skillsRequired.slice(0, 4).map((skill) => (
               <span
                 key={skill}
-                className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded-full"
               >
                 {skill}
               </span>
@@ -179,7 +179,7 @@ export function JobCard({ job, matchScore, connectionsCount, showApplyButton = t
         )}
 
         {/* Actions */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
           <span className="text-xs text-muted-foreground">
             {new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </span>
@@ -188,7 +188,7 @@ export function JobCard({ job, matchScore, connectionsCount, showApplyButton = t
               href={`/jobs/${job.id}`}
               className="text-xs font-medium text-primary hover:underline"
             >
-              View & Apply →
+              View & Apply <span className="inline-block group-hover:translate-x-0.5 transition-transform">→</span>
             </Link>
           )}
         </div>

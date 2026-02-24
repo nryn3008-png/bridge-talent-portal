@@ -21,7 +21,7 @@ export function VcDetailTabs({
   const base = `/portfolio/${encodeURIComponent(vcDomain)}`
 
   return (
-    <Tabs value={activeTab} className="mb-6">
+    <Tabs value={activeTab} className="mb-8">
       <TabsList variant="line">
         <TabsTrigger value="jobs" asChild>
           <Link href={`${base}?tab=jobs`}>

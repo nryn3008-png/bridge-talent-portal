@@ -15,8 +15,8 @@ function CompanyLogo({ domain }: { domain: string }) {
   const initial = domain[0].toUpperCase()
 
   return (
-    <div className="relative flex-shrink-0 w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-      <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-gray-400">
+    <div className="relative flex-shrink-0 w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-muted-foreground">
         {initial}
       </span>
       <img
@@ -46,14 +46,14 @@ export function PortfolioCompanyCard({
   const name = formatCompanyName(domain)
 
   return (
-    <Card className="hover:shadow-md transition-shadow border border-gray-200 rounded-lg">
+    <Card className="card-elevated group rounded-lg">
       <CardContent className="p-5">
         {/* Header with logo + name */}
         <div className="flex items-start gap-3 mb-2">
           <CompanyLogo domain={domain} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-sm text-gray-900 truncate">
+              <h3 className="font-semibold text-sm text-foreground truncate">
                 {name}
               </h3>
               {status && (
@@ -94,14 +94,14 @@ export function PortfolioCompanyCard({
         )}
 
         {/* Action */}
-        <div className="pt-3 border-t border-gray-100">
+        <div className="pt-3 border-t border-border/50">
           <a
             href={`https://${domain}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs font-medium text-primary hover:underline"
           >
-            Visit Website →
+            Visit Website <span className="inline-block group-hover:translate-x-0.5 transition-transform">→</span>
           </a>
         </div>
       </CardContent>

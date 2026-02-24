@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-mulish, 'Mulish', sans-serif);
   --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -39,74 +39,120 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ═══════════════════════════════════════════════════════
+   Bridge Design System — Core Tokens
+   Source of truth: bridge-claude-skills/bridge-design-system
+   ═══════════════════════════════════════════════════════ */
+
 :root {
-  /* Bridge Talent Portal — Design Tokens from design-spec.md */
-  --radius: 0.5rem; /* 8px base for cards */
+  --radius: 0.5rem; /* 8px — radius-default */
 
-  /* Primary — Indigo #6366F1 */
-  --primary: oklch(0.55 0.23 264);        /* #6366F1 */
-  --primary-foreground: oklch(0.99 0 0);  /* white */
+  /* ─── Primary — Royal #0038FF (Bridge Blue) ─── */
+  --primary: #0038FF;
+  --primary-foreground: #FFFFFF;
 
-  /* Background */
-  --background: oklch(0.98 0 0);          /* gray-50 #F9FAFB */
-  --foreground: oklch(0.22 0 0);          /* gray-900 #111827 */
+  /* ─── Background — Slate 05 ─── */
+  --background: #F9F9FA;
+  --foreground: #0D1531; /* Charcoal */
 
-  /* Card */
-  --card: oklch(1 0 0);                   /* white */
-  --card-foreground: oklch(0.22 0 0);     /* gray-900 */
+  /* ─── Card ─── */
+  --card: #FFFFFF;
+  --card-foreground: #0D1531;
 
-  /* Popover */
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0 0);
+  /* ─── Popover ─── */
+  --popover: #FFFFFF;
+  --popover-foreground: #0D1531;
 
-  /* Secondary */
-  --secondary: oklch(0.96 0 0);           /* gray-100 #F3F4F6 */
-  --secondary-foreground: oklch(0.22 0 0);
+  /* ─── Secondary — Slate 10 ─── */
+  --secondary: #F2F3F5;
+  --secondary-foreground: #0D1531;
 
-  /* Muted */
-  --muted: oklch(0.96 0 0);               /* gray-100 */
-  --muted-foreground: oklch(0.46 0 0);    /* gray-500 #6B7280 */
+  /* ─── Muted — Slate 05 / Charcoal 70 ─── */
+  --muted: #F9F9FA;
+  --muted-foreground: #676C7E;
 
-  /* Accent */
-  --accent: oklch(0.94 0.04 264);         /* primary-50 #EEF2FF */
-  --accent-foreground: oklch(0.42 0.2 264); /* primary-700 #4338CA */
+  /* ─── Accent — Royal 10 / Royal S10 ─── */
+  --accent: #E6EBFF;
+  --accent-foreground: #0036D7;
 
-  /* Destructive */
-  --destructive: oklch(0.577 0.245 27.325);
+  /* ─── Destructive — Ruby ─── */
+  --destructive: #E13535;
 
-  /* Border / Input */
-  --border: oklch(0.91 0 0);              /* gray-200 #E5E7EB */
-  --input: oklch(0.91 0 0);
-  --ring: oklch(0.55 0.23 264);           /* primary */
+  /* ─── Border / Input — Slate 30 / Slate 15 ─── */
+  --border: #D9DBE1;
+  --input: #ECEDF0;
+  --ring: #0038FF;
 
-  /* Sidebar */
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.22 0 0);
-  --sidebar-primary: oklch(0.55 0.23 264);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.94 0.04 264);
-  --sidebar-accent-foreground: oklch(0.42 0.2 264);
-  --sidebar-border: oklch(0.91 0 0);
-  --sidebar-ring: oklch(0.55 0.23 264);
-}
+  /* ─── Sidebar ─── */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0D1531;
+  --sidebar-primary: #0038FF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E6EBFF;
+  --sidebar-accent-foreground: #0036D7;
+  --sidebar-border: #D9DBE1;
+  --sidebar-ring: #0038FF;
 
-/* Custom design tokens from design-spec.md */
-:root {
-  /* Badge colors */
-  --badge-vc: #8B5CF6;         /* VC endorsement purple */
-  --badge-founder: #F97316;    /* Founder endorsement orange */
-  --badge-super: #EAB308;      /* Super connector gold */
-  --badge-peer: #06B6D4;       /* Peer endorsement cyan */
+  /* ─── Bridge Extended Palette ─── */
+  --royal: #0038FF;
+  --royal-80: #3360FF;
+  --royal-10: #E6EBFF;
+  --royal-07: #EDF1FF;
+  --royal-05: #F2F5FF;
+  --royal-s10: #0036D7;
+  --charcoal: #0D1531;
+  --charcoal-80: #3D445A;
+  --charcoal-70: #676C7E;
+  --slate-100: #81879C;
+  --slate-80: #9A9FB0;
+  --slate-60: #B3B7C4;
+  --slate-30: #D9DBE1;
+  --slate-20: #E6E8ED;
+  --slate-15: #ECEDF0;
+  --slate-10: #F2F3F5;
+  --slate-05: #F9F9FA;
+  --kelly: #0EA02E;
+  --kelly-10: #E7F6EA;
+  --kelly-s10: #005F15;
+  --honey: #E19500;
+  --honey-10: #FCF4E6;
+  --honey-s10: #714A00;
+  --ruby: #E13535;
+  --ruby-10: #FCEBEB;
+  --ruby-s10: #9E0000;
+  --purple-dark: #3F3181;
+  --royal-purple: #7450DA;
+  --purple-10: #F6F2FF;
+  --purple-s10: #552BCB;
+  --sky: #568FFF;
+  --sky-10: #EEF4FF;
 
-  /* Match score colors */
-  --match-high: #22C55E;       /* 80-100% */
-  --match-medium: #F59E0B;     /* 50-79% */
-  --match-low: #9CA3AF;        /* 0-49% */
+  /* ─── Bridge Shadows (Ds1–Ds3 + Hover) ─── */
+  --shadow-ds1: 0px 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-ds2: 0px 3px 10px rgba(0, 0, 0, 0.1);
+  --shadow-ds3: 0px 6px 20px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0px 6px 20px rgba(0, 0, 0, 0.15);
 
-  /* Status colors */
-  --status-active: #22C55E;
-  --status-passive: #F59E0B;
-  --status-notlooking: #9CA3AF;
+  /* ─── Bridge Gradients ─── */
+  --gradient-royal: linear-gradient(135deg, #0038FF, #0085FF);
+  --gradient-royal-subtle: linear-gradient(135deg, #0038FF, #0066FF);
+  --gradient-purple-sky: linear-gradient(135deg, #5795FF, #5C5DFF);
+  --gradient-slate: linear-gradient(180deg, #F2F3F5, #FFFFFF);
+
+  /* Compat aliases for existing utilities */
+  --shadow-card: var(--shadow-ds1);
+  --shadow-card-hover: var(--shadow-hover);
+  --shadow-nav: var(--shadow-ds1);
+  --shadow-search: var(--shadow-ds1);
+  --shadow-elevated: var(--shadow-ds3);
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: var(--slate-20);
+  --gradient-hero: linear-gradient(135deg, var(--royal-05) 0%, var(--slate-05) 50%, var(--royal-07) 100%);
+  --gradient-login: linear-gradient(135deg, #0D1531 0%, #0038FF 100%);
+
+  /* ─── Badge colors (future use) ─── */
+  --badge-vc: var(--royal-purple);
+  --badge-super: var(--honey);
 }
 
 @layer base {
@@ -115,46 +161,135 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Mulish', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 }
 
-/* Utility classes from design-spec.md */
 @layer utilities {
-  .badge-vc {
-    @apply bg-purple-50 text-purple-700 border border-purple-200;
-  }
-  .badge-founder {
-    @apply bg-orange-50 text-orange-700 border border-orange-200;
-  }
-  .badge-super {
-    @apply bg-yellow-50 text-yellow-700 border border-yellow-200;
-  }
-  .badge-peer {
-    @apply bg-cyan-50 text-cyan-700 border border-cyan-200;
-  }
-  .match-high {
-    @apply bg-green-50 text-green-700;
-  }
-  .match-medium {
-    @apply bg-amber-50 text-amber-700;
-  }
-  .match-low {
-    @apply bg-gray-100 text-gray-500;
-  }
-  .status-active {
-    @apply bg-green-50 text-green-700;
-  }
-  .status-passive {
-    @apply bg-amber-50 text-amber-700;
-  }
-  .status-notlooking {
-    @apply bg-gray-100 text-gray-500;
-  }
+  /* ═══ Navigation ═══ */
   .nav-active {
-    @apply bg-primary/10 text-primary border-l-[3px] border-primary;
+    background: var(--royal-10);
+    color: var(--royal);
+    font-weight: 700;
+    border-radius: 1000px;
   }
   .nav-item {
-    @apply text-muted-foreground hover:text-foreground hover:bg-muted;
+    color: var(--charcoal-80);
+    border-radius: 1000px;
+    transition: color 150ms, background-color 150ms;
+  }
+  .nav-item:hover {
+    color: var(--charcoal);
+    background: var(--slate-10);
+  }
+
+  /* ═══ Glass Navigation ═══ */
+  .glass-nav {
+    background: var(--glass-bg);
+    border-bottom: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-ds1);
+  }
+
+  /* ═══ Card — Ds1 resting, Hover 1 on hover ═══ */
+  .card-elevated {
+    box-shadow: var(--shadow-ds1);
+    border-color: transparent;
+    border-radius: 12px; /* rounded-xl per design system */
+    transition: box-shadow 200ms ease, transform 200ms ease;
+  }
+  .card-elevated:hover {
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-1px);
+  }
+
+  /* ═══ Search Bar Elevation ═══ */
+  .search-elevated {
+    box-shadow: var(--shadow-ds1);
+  }
+  .search-elevated:hover {
+    border-color: rgba(0, 56, 255, 0.4); /* Royal 40% */
+  }
+  .search-elevated:focus,
+  .search-elevated:focus-within {
+    border-color: var(--royal);
+    box-shadow: 0 0 0 2px rgba(0, 56, 255, 0.2);
+  }
+
+  /* ═══ Page Header ═══ */
+  .page-header {
+    background: var(--gradient-hero);
+    border-radius: 12px;
+    padding: 32px 32px 24px;
+    margin-bottom: 24px;
+  }
+
+  /* ═══ Gradient Login Background ═══ */
+  .gradient-login-bg {
+    background: var(--gradient-login);
+    min-height: 100vh;
+  }
+
+  /* ═══ Empty States ═══ */
+  .empty-state {
+    text-align: center;
+    padding: 64px 16px;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .empty-state-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 1000px;
+    background: var(--slate-10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+  }
+
+  /* ═══ Staggered Card Entrance — 300ms ease-out per motion-patterns ═══ */
+  .animate-stagger > * {
+    opacity: 0;
+    animation: fadeUp 0.3s ease-out forwards;
+  }
+  .animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .animate-stagger > *:nth-child(2) { animation-delay: 50ms; }
+  .animate-stagger > *:nth-child(3) { animation-delay: 100ms; }
+  .animate-stagger > *:nth-child(4) { animation-delay: 150ms; }
+  .animate-stagger > *:nth-child(5) { animation-delay: 200ms; }
+  .animate-stagger > *:nth-child(6) { animation-delay: 250ms; }
+  .animate-stagger > *:nth-child(7) { animation-delay: 300ms; }
+  .animate-stagger > *:nth-child(8) { animation-delay: 350ms; }
+  .animate-stagger > *:nth-child(n+9) { animation-delay: 400ms; }
+
+  /* ═══ Focus Ring — 2px solid Royal, 2px offset ═══ */
+  .bridge-focus:focus-visible {
+    outline: 2px solid var(--royal);
+    outline-offset: 2px;
+  }
+}
+
+/* ═══ Keyframes ═══ */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ═══ Reduced motion ═══ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-stagger > * {
+    animation: none;
+    opacity: 1;
+  }
+  .card-elevated {
+    transition: none;
   }
 }

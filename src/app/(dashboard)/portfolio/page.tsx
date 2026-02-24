@@ -15,10 +15,15 @@ export default async function PortfolioPage() {
 
   if (domains.length === 0) {
     return (
-      <div className="p-8">
+      <div className="px-8 pt-6 pb-8">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-2xl font-bold mb-2">Portfolio</h1>
-          <div className="text-center py-16 max-w-lg mx-auto">
+          <div className="page-header">
+            <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
+          </div>
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" /></svg>
+            </div>
             <h3 className="text-lg font-semibold mb-2">No VC networks found</h3>
             <p className="text-sm text-muted-foreground">
               Your account is not connected to any VC networks. Portfolio data will appear here once you join a network.
@@ -47,12 +52,12 @@ export default async function PortfolioPage() {
   }))
 
   return (
-    <div className="p-8">
+    <div className="px-8 pt-6 pb-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-start justify-between mb-6">
+        <div className="page-header flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Portfolio</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
+            <p className="text-muted-foreground mt-1">
               {vcs.length > 0
                 ? `${vcs.length} VC network${vcs.length !== 1 ? 's' : ''} in your Bridge account`
                 : 'VC networks and their portfolio companies'}
@@ -64,7 +69,10 @@ export default async function PortfolioPage() {
         </div>
 
         {vcs.length === 0 && (
-          <div className="text-center py-16 max-w-lg mx-auto">
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" /></svg>
+            </div>
             <h3 className="text-lg font-semibold mb-2">No VC networks available</h3>
             <p className="text-sm text-muted-foreground">
               Your connected networks don&apos;t have portfolio data yet. An admin can trigger a portfolio sync to populate this data.
@@ -73,7 +81,7 @@ export default async function PortfolioPage() {
         )}
 
         {vcs.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-stagger">
             {vcs.map((vc) => (
               <VcCard
                 key={vc.domain}

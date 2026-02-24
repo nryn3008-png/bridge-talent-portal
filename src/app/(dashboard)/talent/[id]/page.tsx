@@ -97,15 +97,16 @@ export default async function TalentProfilePage({ params }: PageProps) {
   const tags = contact?.tags ?? []
 
   return (
-    <div className="p-6">
+    <div className="px-8 pt-6 pb-8">
       <div className="max-w-3xl mx-auto">
         {/* Back */}
-        <Link href="/talent" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block">
-          ← Back to directory
+        <Link href="/talent" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l7 7m-7-7l7-7" /></svg>
+          Back to directory
         </Link>
 
         {/* Header */}
-        <Card className="mb-6">
+        <Card className="card-elevated mb-6">
           <CardContent className="pt-6">
             <div className="flex items-start gap-5">
               {profilePicUrl ? (
@@ -117,13 +118,13 @@ export default async function TalentProfilePage({ params }: PageProps) {
                   className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
                   <span className="text-primary font-bold text-xl">{initials}</span>
                 </div>
               )}
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold">{name}</h1>
+                  <h1 className="text-xl font-bold tracking-tight">{name}</h1>
                   {isSuperConnector && (
                     <span
                       title="Super Connector"
@@ -173,7 +174,7 @@ export default async function TalentProfilePage({ params }: PageProps) {
 
         {/* ICP — roles and industries */}
         {icp && (icp.roles?.length || icp.industries?.length) ? (
-          <Card className="mb-6">
+          <Card className="card-elevated mb-6">
             <CardHeader>
               <CardTitle>Background & Interests</CardTitle>
             </CardHeader>
@@ -207,7 +208,7 @@ export default async function TalentProfilePage({ params }: PageProps) {
 
         {/* Networks */}
         {tags.length > 0 && (
-          <Card className="mb-6">
+          <Card className="card-elevated mb-6">
             <CardHeader>
               <CardTitle>Networks</CardTitle>
             </CardHeader>

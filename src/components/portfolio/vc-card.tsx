@@ -15,8 +15,8 @@ function VcLogo({ domain, title }: { domain: string; title: string | null }) {
   const initial = (title ?? domain)[0].toUpperCase()
 
   return (
-    <div className="relative flex-shrink-0 w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-      <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-gray-400">
+    <div className="relative flex-shrink-0 w-12 h-12 rounded-lg bg-muted/60 flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-muted-foreground">
         {initial}
       </span>
       <img
@@ -34,13 +34,13 @@ export function VcCard({ domain, title, description, industries, location, portf
   const displayName = title ?? domain.replace(/\.\w+$/, '')
 
   return (
-    <Card className="hover:shadow-md transition-shadow border border-gray-200 rounded-lg">
+    <Card className="card-elevated group rounded-lg">
       <CardContent className="p-5">
         {/* Header with logo + name */}
         <div className="flex items-start gap-3 mb-3">
           <VcLogo domain={domain} title={title} />
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base text-gray-900 truncate">
+            <h3 className="font-semibold text-base text-foreground group-hover:text-primary transition-colors truncate">
               {displayName}
             </h3>
             {location && (
@@ -76,12 +76,12 @@ export function VcCard({ domain, title, description, industries, location, portf
         )}
 
         {/* Action */}
-        <div className="pt-3 border-t border-gray-100">
+        <div className="pt-3 border-t border-border/50">
           <Link
             href={`/portfolio/${encodeURIComponent(domain)}`}
             className="text-sm font-medium text-primary hover:underline"
           >
-            View Portfolio →
+            View Portfolio <span className="inline-block group-hover:translate-x-0.5 transition-transform">→</span>
           </Link>
         </div>
       </CardContent>

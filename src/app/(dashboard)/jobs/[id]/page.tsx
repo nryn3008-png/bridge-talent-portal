@@ -45,21 +45,22 @@ export default async function JobDetailPage({ params }: PageProps) {
   }
 
   return (
-    <div className="p-8">
+    <div className="px-8 pt-6 pb-8">
       <div className="max-w-3xl mx-auto">
         <Link
           href="/jobs"
-          className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block"
+          className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5"
         >
-          &larr; Back to jobs
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l7 7m-7-7l7-7" /></svg>
+          Back to jobs
         </Link>
 
-        <Card className="mb-6">
+        <Card className="card-elevated mb-6">
           <CardContent className="pt-6">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">{job.companyDomain}</p>
-                <h1 className="text-2xl font-bold">{job.title}</h1>
+                <h1 className="text-2xl font-bold tracking-tight">{job.title}</h1>
                 {job.location && (
                   <p className="text-muted-foreground mt-1">{job.location}</p>
                 )}
@@ -86,7 +87,7 @@ export default async function JobDetailPage({ params }: PageProps) {
                 {job.skillsRequired.map((skill) => (
                   <span
                     key={skill}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                    className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded-full"
                   >
                     {skill}
                   </span>
@@ -109,7 +110,7 @@ export default async function JobDetailPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        <Card className="mb-6">
+        <Card className="card-elevated mb-6">
           <CardHeader>
             <CardTitle>About the Role</CardTitle>
           </CardHeader>
@@ -128,7 +129,7 @@ export default async function JobDetailPage({ params }: PageProps) {
         </Card>
 
         {job.requirements && (
-          <Card className="mb-6">
+          <Card className="card-elevated mb-6">
             <CardHeader>
               <CardTitle>Requirements</CardTitle>
             </CardHeader>
@@ -148,7 +149,7 @@ export default async function JobDetailPage({ params }: PageProps) {
         )}
 
         {job.status === 'active' && (
-          <Card>
+          <Card className="card-elevated">
             <CardHeader>
               <CardTitle>Apply</CardTitle>
             </CardHeader>

@@ -5,14 +5,83 @@ import { Prisma } from '@prisma/client'
 import { getBridgeMemberIds } from '@/lib/bridge-api/users'
 import { TalentDirectoryClient } from '@/components/talent/talent-directory-client'
 import { CompanyDirectoryClient } from '@/components/talent/company-directory-client'
+import { TalentSearchBar } from '@/components/talent/talent-search-bar'
 import { ViewToggle } from '@/components/talent/view-toggle'
+import { RoleFilterDropdown } from '@/components/talent/role-filter-dropdown'
 import { ROLE_CATEGORIES, buildPositionFilter } from '@/lib/role-categories'
 import { buildCompanyExclusionWhere, buildCompanySearchWhere } from '@/lib/company-utils'
+import { ChevronLeft, ChevronRight, Users } from 'lucide-react'
 import type { BridgeMember } from '@/lib/bridge-api/types'
 import type { CompanyPreviewMember } from '@/components/talent/company-card'
 
 interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>
+}
+
+/**
+ * Pagination component — Bridge Design System
+ * 32px height (Small button), rounded-full, 14px SemiBold
+ * Active: Royal bg + white text. Inactive: Charcoal 70, hover Slate 10.
+ */
+function Pagination({
+  page,
+  totalPages,
+  buildUrl,
+}: {
+  page: number
+  totalPages: number
+  buildUrl: (p: number) => string
+}) {
+  if (totalPages <= 1) return null
+
+  return (
+    <nav aria-label="Pagination" className="flex items-center justify-center gap-1 mt-8">
+      {page > 1 && (
+        <a
+          href={buildUrl(page - 1)}
+          aria-label="Previous page"
+          className="w-8 h-8 flex items-center justify-center rounded-full text-[#676C7E] hover:bg-[#F2F3F5] transition-colors duration-150"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </a>
+      )}
+      {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+        let pageNum: number
+        if (totalPages <= 7) {
+          pageNum = i + 1
+        } else if (page <= 4) {
+          pageNum = i + 1
+        } else if (page >= totalPages - 3) {
+          pageNum = totalPages - 6 + i
+        } else {
+          pageNum = page - 3 + i
+        }
+        return (
+          <a
+            key={pageNum}
+            href={buildUrl(pageNum)}
+            aria-current={pageNum === page ? 'page' : undefined}
+            className={`w-8 h-8 flex items-center justify-center rounded-full text-[14px] font-semibold transition-colors duration-150 ${
+              pageNum === page
+                ? 'bg-[#0038FF] text-white'
+                : 'text-[#676C7E] hover:bg-[#F2F3F5] hover:text-[#0D1531]'
+            }`}
+          >
+            {pageNum}
+          </a>
+        )
+      })}
+      {page < totalPages && (
+        <a
+          href={buildUrl(page + 1)}
+          aria-label="Next page"
+          className="w-8 h-8 flex items-center justify-center rounded-full text-[#676C7E] hover:bg-[#F2F3F5] transition-colors duration-150"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </a>
+      )}
+    </nav>
+  )
 }
 
 export default async function TalentDirectoryPage({ searchParams }: PageProps) {
@@ -42,12 +111,10 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
     let totalCount = 0
 
     try {
-      // Build the where clause for company filtering
       const companyWhere = query
         ? buildCompanySearchWhere(query)
         : buildCompanyExclusionWhere()
 
-      // Query 1: Group by company, get counts, paginated
       const grouped = await prisma.talentProfile.groupBy({
         by: ['company'],
         _count: { company: true },
@@ -57,7 +124,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
         take: perPage,
       })
 
-      // Query 2: Count total distinct companies for pagination
       const countResult = await prisma.$queryRaw<[{ count: bigint }]>`
         SELECT COUNT(DISTINCT company) as count
         FROM talent_profiles
@@ -67,7 +133,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
       `
       totalCount = Number(countResult[0]?.count ?? 0)
 
-      // Query 3: Fetch preview members for the companies on this page
       const companyNames = grouped
         .map((g) => g.company)
         .filter((c): c is string => c !== null)
@@ -97,7 +162,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
         })
       }
 
-      // Group preview members by company (take top 4 per company)
       const membersByCompany = new Map<string, CompanyPreviewMember[]>()
       for (const m of previewMembers) {
         if (!m.company) continue
@@ -113,7 +177,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
         }
       }
 
-      // Assemble final data
       companies = grouped.map((g) => ({
         companyName: g.company ?? '',
         memberCount: g._count.company,
@@ -132,18 +195,38 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
     }
 
     return (
-      <div className="p-8">
+      <div className="px-6 pt-6 pb-8">
         <div className="max-w-7xl mx-auto">
+          {/* Header — Figma: icon + title inline, subtitle below */}
           <div className="mb-6">
-            <h1 className="text-2xl font-bold">Talent Directory</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {totalCount > 0
-                ? `${totalCount.toLocaleString()} companies in the Bridge network`
-                : 'Browse companies in the Bridge network'}
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-9 h-9 rounded-[12px] bg-[#0038FF] flex items-center justify-center flex-shrink-0">
+                <Users className="w-[18px] h-[18px] text-white" />
+              </div>
+              <h1 className="text-[18px] font-bold text-[#0D1531]">Talent Directory</h1>
+            </div>
+            <p className="text-[14px] text-[#81879C] tracking-[0.4px]">
+              Discover and connect with top talent in our directory!
             </p>
           </div>
 
-          <ViewToggle activeView="companies" />
+          {/* Controls row — Figma: search + divider + view toggle on one line */}
+          <div className="flex items-center gap-2">
+            <TalentSearchBar />
+            <div className="w-px h-6 bg-[#ECEDF0] flex-shrink-0" />
+            <ViewToggle activeView="companies" />
+          </div>
+
+          {/* Count text — Figma: 12px Regular, Slate 60, tracking 0.4px */}
+          {totalCount > 0 && (
+            <p className="text-[12px] text-[#B3B7C4] tracking-[0.4px] mt-6 mb-4">
+              {totalCount.toLocaleString()} {totalCount === 1 ? 'company' : 'companies'}
+            </p>
+          )}
+
+          {totalCount === 0 && (
+            <div className="mt-6" />
+          )}
 
           <CompanyDirectoryClient
             companies={companies}
@@ -151,30 +234,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
             query={query}
           />
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-8">
-              {page > 1 && (
-                <a
-                  href={buildUrl(page - 1)}
-                  className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
-                >
-                  Previous
-                </a>
-              )}
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {totalPages}
-              </span>
-              {page < totalPages && (
-                <a
-                  href={buildUrl(page + 1)}
-                  className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
-                >
-                  Next
-                </a>
-              )}
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} buildUrl={buildUrl} />
         </div>
       </div>
     )
@@ -187,14 +247,11 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
   let totalCount = 0
   let hasSyncedProfiles = false
 
-  // ── Try reading from DB (Supabase) first ──
   if (prisma) {
     try {
-      // Build where clause — combine search + role filter + company filter
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conditions: any[] = []
 
-      // Text search
       if (query) {
         conditions.push({
           OR: [
@@ -207,7 +264,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
         })
       }
 
-      // Role category filter
       if (roleFilter) {
         const positionFilters = buildPositionFilter(roleFilter)
         if (positionFilters) {
@@ -215,7 +271,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
         }
       }
 
-      // Company filter (from clicking "View Talent" on a company card)
       if (companyFilter) {
         conditions.push({
           company: { equals: companyFilter, mode: 'insensitive' },
@@ -262,7 +317,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
     }
   }
 
-  // ── Fallback: if DB is empty or unavailable, use Bridge API for UUIDs ──
   if (totalCount === 0 && !roleFilter && !companyFilter) {
     try {
       const data = await getBridgeMemberIds()
@@ -282,7 +336,6 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
 
   const totalPages = Math.ceil(totalCount / perPage)
 
-  // Build URL helper for pagination links
   const buildUrl = (p: number) => {
     const parts = [`/talent?page=${p}`]
     if (query) parts.push(`q=${encodeURIComponent(query)}`)
@@ -291,37 +344,63 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
     return parts.join('&')
   }
 
-  // Subtitle text
-  const subtitleText = (() => {
-    if (totalCount === 0) return 'Vetted professionals in the Bridge network'
+  // Count label — context-aware
+  const countLabel = (() => {
+    if (totalCount === 0) return null
     if (companyFilter) {
       return `${totalCount.toLocaleString()} member${totalCount !== 1 ? 's' : ''} at ${companyFilter}`
     }
     if (roleFilter) {
       const roleLabel = ROLE_CATEGORIES.find((c) => c.id === roleFilter)?.label ?? roleFilter
-      return `${totalCount.toLocaleString()} members in ${roleLabel}`
+      return `${totalCount.toLocaleString()} member${totalCount !== 1 ? 's' : ''} in ${roleLabel}`
     }
-    return `${totalCount.toLocaleString()} members in the Bridge network`
+    return `${totalCount.toLocaleString()} member${totalCount !== 1 ? 's' : ''}`
   })()
 
   return (
-    <div className="p-8">
+    <div className="px-6 pt-6 pb-8">
       <div className="max-w-7xl mx-auto">
+        {/* Header — Figma: icon + title inline, subtitle below */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Talent Directory</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {subtitleText}
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-9 h-9 rounded-[12px] bg-[#0038FF] flex items-center justify-center flex-shrink-0">
+              <Users className="w-[18px] h-[18px] text-white" />
+            </div>
+            <h1 className="text-[18px] font-bold text-[#0D1531]">Talent Directory</h1>
+          </div>
+          <p className="text-[14px] text-[#81879C] tracking-[0.4px]">
+            Discover and connect with top talent in our directory!
           </p>
         </div>
 
-        <ViewToggle activeView="people" />
+        {/* Controls row — Figma: search + role dropdown + divider + view toggle */}
+        <div className="flex items-center gap-2">
+          <TalentSearchBar />
+          <RoleFilterDropdown
+            roleCategories={ROLE_CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
+            activeRole={roleFilter || undefined}
+          />
+          <div className="w-px h-6 bg-[#ECEDF0] flex-shrink-0" />
+          <ViewToggle activeView="people" />
+        </div>
 
-        {/* Sync prompt when profiles are placeholder-only */}
+        {/* Count text — Figma: 12px Regular, Slate 60, tracking 0.4px */}
+        {countLabel && (
+          <p className="text-[12px] text-[#B3B7C4] tracking-[0.4px] mt-6 mb-4">
+            {countLabel}
+          </p>
+        )}
+
+        {!countLabel && (
+          <div className="mt-6" />
+        )}
+
+        {/* Sync warning — Bridge warning pattern: Honey 10 bg, Honey S10 text */}
         {totalCount > 0 && !hasSyncedProfiles && (
-          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm text-amber-800">
-              <span className="font-medium">Profiles not yet synced.</span>{' '}
-              Run <code className="text-xs bg-amber-100 px-1 py-0.5 rounded">POST /api/sync {`{"mode":"bulk"}`}</code> to fetch full profiles from Bridge.
+          <div className="mb-6 rounded-lg border border-[#FBEFD9] bg-[#FCF4E6] px-4 py-3">
+            <p className="text-[14px] text-[#714A00]">
+              <span className="font-bold">Profiles not yet synced.</span>{' '}
+              Run <code className="text-[12px] bg-[#FBEFD9] px-1 py-0.5 rounded">POST /api/sync {`{"mode":"bulk"}`}</code> to fetch full profiles from Bridge.
             </p>
           </div>
         )}
@@ -329,38 +408,12 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
         <TalentDirectoryClient
           members={members}
           totalCount={totalCount}
-          page={page}
-          totalPages={totalPages}
           query={query}
           activeRole={roleFilter}
-          roleCategories={ROLE_CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
           companyFilter={companyFilter || undefined}
         />
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-8">
-            {page > 1 && (
-              <a
-                href={buildUrl(page - 1)}
-                className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
-              >
-                Previous
-              </a>
-            )}
-            <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages}
-            </span>
-            {page < totalPages && (
-              <a
-                href={buildUrl(page + 1)}
-                className="px-4 py-2 border rounded-md text-sm hover:bg-muted"
-              >
-                Next
-              </a>
-            )}
-          </div>
-        )}
+        <Pagination page={page} totalPages={totalPages} buildUrl={buildUrl} />
       </div>
     </div>
   )
