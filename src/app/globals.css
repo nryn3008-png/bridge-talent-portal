@@ -217,14 +217,6 @@
     box-shadow: 0 0 0 2px rgba(0, 56, 255, 0.2);
   }
 
-  /* ═══ Page Header ═══ */
-  .page-header {
-    background: var(--gradient-hero);
-    border-radius: 12px;
-    padding: 32px 32px 24px;
-    margin-bottom: 24px;
-  }
-
   /* ═══ Gradient Login Background ═══ */
   .gradient-login-bg {
     background: var(--gradient-login);

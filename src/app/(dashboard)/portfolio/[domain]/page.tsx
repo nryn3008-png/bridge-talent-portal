@@ -14,6 +14,7 @@ import {
   fetchPortfolioTalent,
 } from '@/lib/portfolio-talent-match'
 import { Pagination } from '@/components/ui/pagination'
+import { ArrowLeft, MapPin, Briefcase, Building2, Users } from 'lucide-react'
 import Link from 'next/link'
 import type { BridgeMember } from '@/lib/bridge-api/types'
 
@@ -33,7 +34,7 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
   }
 
   if (!prisma) {
-    return <div className="p-8 text-center text-muted-foreground">Database not configured</div>
+    return <div className="p-8 text-center text-[#81879C]">Database not configured</div>
   }
 
   const { domain } = await params
@@ -185,14 +186,14 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
   const portfolioExtraParams: Record<string, string> = { tab }
 
   return (
-    <div className="px-8 pt-6 pb-8">
+    <div className="px-6 pt-6 pb-8">
       <div className="max-w-7xl mx-auto">
         {/* Back */}
         <Link
           href="/portfolio"
-          className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5"
+          className="text-[13px] text-[#81879C] hover:text-[#0D1531] mb-4 inline-flex items-center gap-1.5 transition-colors duration-150"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l7 7m-7-7l7-7" /></svg>
+          <ArrowLeft className="w-3.5 h-3.5" />
           Back to Portfolio
         </Link>
 
@@ -202,11 +203,14 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
             <div className="flex items-start gap-5">
               <VcHeaderLogo domain={decodedDomain} title={vc.title} />
               <div className="flex-1">
-                <h1 className="text-2xl font-bold">{displayName}</h1>
+                <h1 className="text-[22px] font-bold text-[#0D1531]">{displayName}</h1>
                 {vc.location && (
-                  <p className="text-sm text-muted-foreground mt-0.5">📍 {vc.location}</p>
+                  <p className="text-[13px] text-[#676C7E] mt-0.5 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                    {vc.location}
+                  </p>
                 )}
-                <p className="text-sm text-muted-foreground mt-0.5">
+                <p className="text-[13px] text-[#81879C] mt-0.5">
                   {companyCount} portfolio {companyCount === 1 ? 'company' : 'companies'}
                   {jobCount > 0 && ` · ${jobCount} open ${jobCount === 1 ? 'job' : 'jobs'}`}
                 </p>
@@ -214,15 +218,15 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
             </div>
 
             {vc.description && (
-              <p className="text-sm text-muted-foreground mt-4 leading-relaxed">{vc.description}</p>
+              <p className="text-[14px] text-[#676C7E] mt-4 leading-relaxed">{vc.description}</p>
             )}
 
             {vc.founders.length > 0 && (
               <div className="mt-4">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                <p className="text-[12px] font-medium text-[#81879C] uppercase tracking-wide mb-1">
                   Founders
                 </p>
-                <p className="text-sm">{vc.founders.join(', ')}</p>
+                <p className="text-[14px] text-[#0D1531]">{vc.founders.join(', ')}</p>
               </div>
             )}
           </CardContent>
@@ -231,12 +235,12 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
         {/* Industries they invest in */}
         {topIndustries.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-2">
+            <h2 className="text-[12px] font-medium text-[#81879C] uppercase tracking-wide mb-2">
               Top Investment Industries
             </h2>
             <div className="flex flex-wrap gap-2">
               {topIndustries.map(([industry, count]) => (
-                <Badge key={industry} variant="secondary" className="text-xs">
+                <Badge key={industry} variant="default">
                   {industry} ({count})
                 </Badge>
               ))}
@@ -257,7 +261,7 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
         {tab === 'jobs' && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[13px] text-[#81879C]">
                 {jobCount > 0
                   ? `${jobCount} open ${jobCount === 1 ? 'position' : 'positions'} across portfolio companies`
                   : 'Discover open positions from portfolio companies'}
@@ -270,27 +274,27 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
                 {jobsData.map((job) => (
                   <Card
                     key={job.id}
-                    className="card-elevated group rounded-lg"
+                    className="card-elevated group"
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-1.5 mb-1">
                         <JobCompanyFavicon domain={job.companyDomain} />
-                        <span className="text-xs text-muted-foreground">{job.companyDomain}</span>
+                        <span className="text-[12px] text-[#81879C]">{job.companyDomain}</span>
                       </div>
                       <Link href={`/jobs/${job.id}`} className="hover:underline">
-                        <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors leading-snug">
+                        <h3 className="font-semibold text-[13px] text-[#0D1531] group-hover:text-[#0038FF] transition-colors duration-150 leading-snug">
                           {job.title}
                         </h3>
                       </Link>
                       {job.location && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          📍 {job.location}
-                          {job.workType === 'remote' && ' (Remote)'}
+                        <p className="text-[12px] text-[#676C7E] mt-1 flex items-center gap-1">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span>{job.location}{job.workType === 'remote' && ' (Remote)'}</span>
                         </p>
                       )}
                       <div className="flex flex-wrap gap-1.5 mt-2">
                         {job.workType && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="default">
                             {job.workType === 'remote'
                               ? 'Remote'
                               : job.workType === 'hybrid'
@@ -299,16 +303,13 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
                           </Badge>
                         )}
                         {job.source !== 'manual' && (
-                          <Badge
-                            variant="secondary"
-                            className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                          >
+                          <Badge variant="info">
                             via {job.source.charAt(0).toUpperCase() + job.source.slice(1)}
                           </Badge>
                         )}
                       </div>
-                      <div className="mt-3 pt-2 border-t border-border/50 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">
+                      <div className="mt-3 pt-2 border-t border-[#ECEDF0] flex items-center justify-between">
+                        <span className="text-[12px] text-[#81879C]">
                           {new Date(job.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
@@ -316,9 +317,9 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
                         </span>
                         <Link
                           href={`/jobs/${job.id}`}
-                          className="text-xs font-medium text-primary hover:underline"
+                          className="text-[13px] font-semibold text-[#0038FF] hover:text-[#0036D7] transition-colors duration-150"
                         >
-                          View & Apply →
+                          View & Apply &rarr;
                         </Link>
                       </div>
                     </CardContent>
@@ -328,10 +329,10 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">
-                  <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                  <Briefcase className="w-6 h-6 text-[#81879C]" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">No jobs found yet</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-[16px] font-semibold text-[#0D1531] mb-2">No jobs found yet</h3>
+                <p className="text-[14px] text-[#81879C]">
                   Click &quot;Sync Portfolio Jobs&quot; to discover open positions from portfolio companies.
                 </p>
               </div>
@@ -345,10 +346,10 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
             {companyCount === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon">
-                  <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" /></svg>
+                  <Building2 className="w-6 h-6 text-[#81879C]" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">No portfolio companies</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-[16px] font-semibold text-[#0D1531] mb-2">No portfolio companies</h3>
+                <p className="text-[14px] text-[#81879C]">
                   This VC network doesn&apos;t have any portfolio companies listed yet.
                 </p>
               </div>
@@ -383,10 +384,10 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
             ) : (
               <div className="empty-state">
                 <div className="empty-state-icon">
-                  <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>
+                  <Users className="w-6 h-6 text-[#81879C]" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">No talent found</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="text-[16px] font-semibold text-[#0D1531] mb-2">No talent found</h3>
+                <p className="text-[14px] text-[#81879C]">
                   No Bridge members matched to this VC network or its portfolio companies yet.
                 </p>
               </div>
@@ -406,8 +407,8 @@ function VcHeaderLogo({ domain, title }: { domain: string; title: string | null 
   const initial = (title ?? domain)[0].toUpperCase()
 
   return (
-    <div className="relative flex-shrink-0 w-16 h-16 rounded-xl bg-muted/60 flex items-center justify-center overflow-hidden">
-      <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-muted-foreground">
+    <div className="relative flex-shrink-0 w-16 h-16 rounded-xl bg-[#F2F3F5] flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-[#81879C]">
         {initial}
       </span>
       <img
@@ -424,8 +425,8 @@ function VcHeaderLogo({ domain, title }: { domain: string; title: string | null 
 // Small favicon for inline job cards
 function JobCompanyFavicon({ domain }: { domain: string }) {
   return (
-    <div className="relative flex-shrink-0 w-5 h-5 rounded bg-muted/60 flex items-center justify-center overflow-hidden">
-      <span className="absolute inset-0 flex items-center justify-center text-[8px] font-semibold text-muted-foreground">
+    <div className="relative flex-shrink-0 w-5 h-5 rounded bg-[#F2F3F5] flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 flex items-center justify-center text-[8px] font-semibold text-[#81879C]">
         {domain.charAt(0).toUpperCase()}
       </span>
       <img

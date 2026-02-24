@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { VcCard } from '@/components/portfolio/vc-card'
 import { SyncPortfolioJobsButton } from '@/components/portfolio/sync-portfolio-jobs-button'
+import { Building2 } from 'lucide-react'
 
 export default async function PortfolioPage() {
   const session = await getSession()
@@ -15,17 +16,23 @@ export default async function PortfolioPage() {
 
   if (domains.length === 0) {
     return (
-      <div className="px-8 pt-6 pb-8">
+      <div className="px-6 pt-6 pb-8">
         <div className="max-w-7xl mx-auto">
-          <div className="page-header">
-            <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
+          {/* Header — Bridge pattern */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-9 h-9 rounded-[12px] bg-[#0038FF] flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-[18px] h-[18px] text-white" />
+              </div>
+              <h1 className="text-[18px] font-bold text-[#0D1531]">Portfolio</h1>
+            </div>
           </div>
           <div className="empty-state">
             <div className="empty-state-icon">
-              <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" /></svg>
+              <Building2 className="w-6 h-6 text-[#81879C]" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No VC networks found</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className="text-[16px] font-semibold text-[#0D1531] mb-2">No VC networks found</h3>
+            <p className="text-[14px] text-[#81879C]">
               Your account is not connected to any VC networks. Portfolio data will appear here once you join a network.
             </p>
           </div>
@@ -52,12 +59,18 @@ export default async function PortfolioPage() {
   }))
 
   return (
-    <div className="px-8 pt-6 pb-8">
+    <div className="px-6 pt-6 pb-8">
       <div className="max-w-7xl mx-auto">
-        <div className="page-header flex items-start justify-between">
+        {/* Header — Bridge pattern: icon + title inline, subtitle below */}
+        <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Portfolio</h1>
-            <p className="text-muted-foreground mt-1">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-9 h-9 rounded-[12px] bg-[#0038FF] flex items-center justify-center flex-shrink-0">
+                <Building2 className="w-[18px] h-[18px] text-white" />
+              </div>
+              <h1 className="text-[18px] font-bold text-[#0D1531]">Portfolio</h1>
+            </div>
+            <p className="text-[14px] text-[#81879C] tracking-[0.4px]">
               {vcs.length > 0
                 ? `${vcs.length} VC network${vcs.length !== 1 ? 's' : ''} in your Bridge account`
                 : 'VC networks and their portfolio companies'}
@@ -71,10 +84,10 @@ export default async function PortfolioPage() {
         {vcs.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-icon">
-              <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" /></svg>
+              <Building2 className="w-6 h-6 text-[#81879C]" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No VC networks available</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className="text-[16px] font-semibold text-[#0D1531] mb-2">No VC networks available</h3>
+            <p className="text-[14px] text-[#81879C]">
               Your connected networks don&apos;t have portfolio data yet. An admin can trigger a portfolio sync to populate this data.
             </p>
           </div>

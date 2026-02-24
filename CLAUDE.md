@@ -352,7 +352,18 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Talent directory controls row** — Search bar, role filter dropdown, vertical divider, and view toggle are all rendered on ONE horizontal flex row in `talent/page.tsx` (not inside child components). The client components (`talent-directory-client.tsx`, `company-directory-client.tsx`) no longer render their own search bars or role filters.
 - **Role filter is a dropdown** — `role-filter-dropdown.tsx` uses shadcn `DropdownMenu` (not inline chips). The role categories data is defined in `src/lib/role-categories.ts` and passed as props from the page.
 - **Badge system** — `src/components/ui/badge.tsx` has 6 Bridge variants: `default` (Slate), `info` (Sky/Royal), `success` (Kelly), `warning` (Honey), `error` (Ruby), `purple`. Legacy variants (`secondary`, `outline`, `destructive`) are kept for backward compat.
-- **Talent directory header** — Uses a 36px Royal blue rounded-12px icon with Users lucide icon + 18px Bold title inline, with subtitle below. This pattern is defined in the Figma design (node `4892:2527`).
+- **Bridge page header pattern** — ALL pages use the same header: 36px (`w-9 h-9`) Royal `#0038FF` `rounded-[12px]` icon container + 18px Bold `#0D1531` title inline + 14px `#81879C` subtitle below. Icons per page: Talent→`Users`, Jobs→`Briefcase`, Job Post→`PenSquare`, Portfolio→`Building2`, Profile→`User`. Defined in Figma (node `4892:2527`).
+- **Bridge color tokens** — All pages use explicit Bridge hex tokens instead of generic Tailwind/shadcn colors. Key: `#0D1531` (Charcoal text), `#3D445A` (Charcoal 80 secondary text), `#676C7E` (Charcoal 70 body text), `#81879C` (Slate 100 muted text), `#0D7C47` (green for salary/job count), `#D93025` (red for errors), `#0038FF` (Royal primary). NEVER use `text-green-600`, `text-blue-700`, `text-red-600` etc.
+- **Lucide icons only — NO emoji** — Zero emoji in the codebase. All emoji have been replaced: `📍`→`MapPin`, `⚡`→`Zap`, `🔄`→`RefreshCw`, `🟢🟡⚪`→Badge variants, `👥`→`Users`. Always use Lucide icons.
+- **Back links** — All detail pages (talent/[id], jobs/[id], portfolio/[domain]) use Lucide `ArrowLeft` icon (not inline SVG). Style: `text-[13px] text-[#81879C] hover:text-[#0D1531] transition-colors duration-150`.
+- **Page padding** — All pages use `px-6 pt-6 pb-8` (not `px-8`). List pages use `max-w-7xl`, detail pages use `max-w-3xl` or `max-w-4xl`.
+- **`.page-header` removed** — The old gradient page-header CSS class has been removed from `globals.css`. All pages now use the inline Bridge header pattern instead.
+- **Job filters layout** — `job-filters.tsx` renders search + all filter selects on a single horizontal flex row (matching talent page controls pattern). Search is pill-shaped with `onKeyDown` Enter handler (no form/button). A `w-px h-6` divider separates search from filter dropdowns.
+- **Sync button** — `sync-portfolio-jobs-button.tsx` uses `RefreshCw` icon (idle) and `Loader2` with `animate-spin` (syncing). Success text is `text-[#0D7C47]`, error text is `text-[#D93025]`.
+- **Badge usage** — Cards and pages use only Bridge badge variants: `default` for type/industry tags, `info` for roles/source ("via Greenhouse"), `success` for live status/high match, `warning` for super connector. NEVER use `variant="secondary"` or `variant="outline"` for new code.
+- **Card styling** — All cards use `card-elevated group` class (which includes `rounded-xl`). Favicon containers inside cards use `rounded-lg bg-[#F2F3F5]`. Border dividers use `border-[#ECEDF0]`.
+- **Section titles in detail pages** — Use `h2` with `text-[16px] font-semibold text-[#0D1531] mb-4` inside `CardContent` (NOT `CardHeader`/`CardTitle`).
+- **Talent directory header** — (Legacy note) Same Bridge header pattern described above with Users icon.
 - **Talent directory is a table view** — `talent-directory-client.tsx` renders an HTML `<table>` (not a card grid). Columns: Name (avatar + link), Position, Company, Location, Roles (badges), Bio. The old `talent-card.tsx` is no longer imported by the directory but kept for use in portfolio talent tab.
 - **Shared Pagination component** — `src/components/ui/pagination.tsx` is a `'use client'` component used on all 3 paginated pages (talent, jobs, portfolio). Figma design (node `4894:2636`): "Page X of Y" text + prev/next chevron buttons (pill, Slate 60 border) + rows-per-page dropdown (10/20/50). Props: `page`, `totalPages`, `perPage`, `basePath`, `extraParams`. Does NOT accept functions as props (Server→Client serialization boundary). All pages support `?per_page=` URL param.
 - **View toggle icons** — People tab uses `TableProperties` icon (was `LayoutGrid`), Companies tab uses `List`. Toggle outer bg is Slate 10 (`#F2F3F5`).
@@ -377,6 +388,8 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Modify view toggle | `src/components/talent/view-toggle.tsx` |
 | Modify design tokens | `src/app/globals.css` |
 | Modify jobs page | `src/app/(dashboard)/jobs/page.tsx` |
+| Modify job detail page | `src/app/(dashboard)/jobs/[id]/page.tsx` |
+| Modify job post page | `src/app/(dashboard)/jobs/post/page.tsx` |
 | Modify job cards | `src/components/jobs/job-card.tsx` |
 | Modify job filters | `src/components/jobs/job-filters.tsx` |
 | Modify job posting | `src/components/jobs/job-post-form.tsx` |
@@ -397,6 +410,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Modify portfolio company cards | `src/components/portfolio/portfolio-company-card.tsx` |
 | Modify talent-portfolio matching | `src/lib/portfolio-talent-match.ts` |
 | Bridge API portfolio calls | `src/lib/bridge-api/portfolio.ts` |
+| Modify talent detail page | `src/app/(dashboard)/talent/[id]/page.tsx` |
+| Modify profile page | `src/app/(dashboard)/profile/page.tsx` |
+| Modify sync button | `src/components/portfolio/sync-portfolio-jobs-button.tsx` |
 | Auth / session | `src/lib/auth/session.ts` |
 | Login page | `src/app/(auth)/login/page.tsx` |
 

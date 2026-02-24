@@ -1,7 +1,8 @@
 import { getSession } from '@/lib/auth/session'
 import { getCurrentUser } from '@/lib/bridge-api/users'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { User, MapPin } from 'lucide-react'
 import Image from 'next/image'
 
 export default async function ProfilePage() {
@@ -13,12 +14,18 @@ export default async function ProfilePage() {
     user = await getCurrentUser(session.bridgeJwt)
   } catch {
     return (
-      <div className="px-8 pt-6 pb-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="page-header">
-            <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
-            <p className="text-muted-foreground mt-1">
-              Could not load your Bridge profile. Please try again.
+      <div className="px-6 pt-6 pb-8">
+        <div className="max-w-3xl mx-auto">
+          {/* Header — Bridge pattern */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-9 h-9 rounded-[12px] bg-[#0038FF] flex items-center justify-center flex-shrink-0">
+                <User className="w-[18px] h-[18px] text-white" />
+              </div>
+              <h1 className="text-[18px] font-bold text-[#0D1531]">My Profile</h1>
+            </div>
+            <p className="text-[14px] text-[#81879C] tracking-[0.4px]">
+              Could not load your Bridge profile. Try again later.
             </p>
           </div>
         </div>
@@ -31,11 +38,17 @@ export default async function ProfilePage() {
   const initials = `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase()
 
   return (
-    <div className="px-8 pt-6 pb-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="page-header">
-          <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
-          <p className="text-muted-foreground mt-1">Your Bridge network profile</p>
+    <div className="px-6 pt-6 pb-8">
+      <div className="max-w-3xl mx-auto">
+        {/* Header — Bridge pattern: icon + title inline, subtitle below */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-9 h-9 rounded-[12px] bg-[#0038FF] flex items-center justify-center flex-shrink-0">
+              <User className="w-[18px] h-[18px] text-white" />
+            </div>
+            <h1 className="text-[18px] font-bold text-[#0D1531]">My Profile</h1>
+          </div>
+          <p className="text-[14px] text-[#81879C] tracking-[0.4px]">Your Bridge network profile</p>
         </div>
 
         {/* Bridge profile */}
@@ -51,26 +64,29 @@ export default async function ProfilePage() {
                   className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary font-bold text-xl">{initials}</span>
+                <div className="w-16 h-16 rounded-full bg-[#F2F5FF] flex items-center justify-center flex-shrink-0">
+                  <span className="text-[#0038FF] font-bold text-xl">{initials}</span>
                 </div>
               )}
               <div className="flex-1 space-y-1">
-                <h2 className="text-lg font-semibold">{name}</h2>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
+                <h2 className="text-[16px] font-semibold text-[#0D1531]">{name}</h2>
+                <p className="text-[13px] text-[#81879C]">{user.email}</p>
                 {(gp?.position || gp?.company) && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-[13px] text-[#3D445A]">
                     {[gp.position, gp.company].filter(Boolean).join(' at ')}
                   </p>
                 )}
                 {gp?.location && (
-                  <p className="text-sm text-muted-foreground">📍 {gp.location}</p>
+                  <p className="text-[13px] text-[#676C7E] flex items-center gap-1">
+                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                    {gp.location}
+                  </p>
                 )}
               </div>
             </div>
 
             {gp?.bio && (
-              <p className="text-sm text-muted-foreground mt-4 leading-relaxed">{gp.bio}</p>
+              <p className="text-[14px] text-[#676C7E] mt-4 leading-relaxed">{gp.bio}</p>
             )}
 
             <div className="flex gap-2 mt-4">
@@ -79,7 +95,7 @@ export default async function ProfilePage() {
                   href={gp.linkedin_profile_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline"
+                  className="text-[14px] text-[#0038FF] hover:underline"
                 >
                   LinkedIn
                 </a>
@@ -89,7 +105,7 @@ export default async function ProfilePage() {
                   href={gp.company_website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline"
+                  className="text-[14px] text-[#0038FF] hover:underline"
                 >
                   Website
                 </a>
@@ -101,30 +117,30 @@ export default async function ProfilePage() {
         {/* ICP */}
         {user.icp && user.icp.public && (
           <Card className="card-elevated mb-6">
-            <CardHeader>
-              <CardTitle>Background & Interests</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {user.icp.roles && user.icp.roles.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-1.5">Roles</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {user.icp.roles.map((r) => (
-                      <Badge key={r} variant="secondary">{r}</Badge>
-                    ))}
+            <CardContent className="pt-6">
+              <h2 className="text-[16px] font-semibold text-[#0D1531] mb-4">Background & Interests</h2>
+              <div className="space-y-3">
+                {user.icp.roles && user.icp.roles.length > 0 && (
+                  <div>
+                    <p className="text-[13px] font-medium text-[#3D445A] mb-1.5">Roles</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {user.icp.roles.map((r) => (
+                        <Badge key={r} variant="info">{r}</Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {user.icp.industries && user.icp.industries.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-1.5">Industries</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {user.icp.industries.map((i) => (
-                      <Badge key={i} variant="outline">{i}</Badge>
-                    ))}
+                )}
+                {user.icp.industries && user.icp.industries.length > 0 && (
+                  <div>
+                    <p className="text-[13px] font-medium text-[#3D445A] mb-1.5">Industries</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {user.icp.industries.map((i) => (
+                        <Badge key={i} variant="default">{i}</Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -132,20 +148,18 @@ export default async function ProfilePage() {
         {/* Networks */}
         {user.network_domains && user.network_domains.length > 0 && (
           <Card className="card-elevated">
-            <CardHeader>
-              <CardTitle>Networks</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
+              <h2 className="text-[16px] font-semibold text-[#0D1531] mb-4">Networks</h2>
               <div className="flex flex-wrap gap-2">
                 {user.network_domains.map((nd) => (
-                  <Badge key={nd.domain} variant="outline">{nd.name || nd.domain}</Badge>
+                  <Badge key={nd.domain} variant="default">{nd.name || nd.domain}</Badge>
                 ))}
               </div>
             </CardContent>
           </Card>
         )}
 
-        <p className="text-xs text-muted-foreground mt-6">
+        <p className="text-[12px] text-[#81879C] mt-6">
           To update your profile, edit it in Bridge directly.
         </p>
       </div>

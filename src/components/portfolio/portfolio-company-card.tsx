@@ -15,8 +15,8 @@ function CompanyLogo({ domain }: { domain: string }) {
   const initial = domain[0].toUpperCase()
 
   return (
-    <div className="relative flex-shrink-0 w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center overflow-hidden">
-      <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-muted-foreground">
+    <div className="relative flex-shrink-0 w-10 h-10 rounded-lg bg-[#F2F3F5] flex items-center justify-center overflow-hidden">
+      <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-[#81879C]">
         {initial}
       </span>
       <img
@@ -46,47 +46,44 @@ export function PortfolioCompanyCard({
   const name = formatCompanyName(domain)
 
   return (
-    <Card className="card-elevated group rounded-lg">
+    <Card className="card-elevated group">
       <CardContent className="p-5">
         {/* Header with logo + name */}
         <div className="flex items-start gap-3 mb-2">
           <CompanyLogo domain={domain} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-sm text-foreground truncate">
+              <h3 className="font-semibold text-[13px] text-[#0D1531] truncate">
                 {name}
               </h3>
               {status && (
-                <Badge
-                  variant={status === 'exited' ? 'outline' : 'secondary'}
-                  className={`text-xs ${status === 'live' ? 'bg-green-50 text-green-700 border-green-200' : ''}`}
-                >
+                <Badge variant={status === 'live' ? 'success' : 'default'}>
                   {status}
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground truncate">{domain}</p>
+            <p className="text-[12px] text-[#81879C] truncate">{domain}</p>
             {jobCount !== undefined && jobCount > 0 && (
-              <p className="text-xs text-green-600 font-medium">{jobCount} open {jobCount === 1 ? 'job' : 'jobs'}</p>
+              <p className="text-[12px] text-[#0D7C47] font-medium">{jobCount} open {jobCount === 1 ? 'job' : 'jobs'}</p>
             )}
           </div>
         </div>
 
         {/* Description */}
         {description && (
-          <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{description}</p>
+          <p className="text-[12px] text-[#676C7E] line-clamp-2 mb-3">{description}</p>
         )}
 
         {/* Industry tags */}
         {industries.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {industries.slice(0, 3).map((ind) => (
-              <Badge key={ind} variant="outline" className="text-xs">
+              <Badge key={ind} variant="default">
                 {ind}
               </Badge>
             ))}
             {industries.length > 3 && (
-              <Badge variant="outline" className="text-xs text-muted-foreground">
+              <Badge variant="default">
                 +{industries.length - 3}
               </Badge>
             )}
@@ -94,14 +91,15 @@ export function PortfolioCompanyCard({
         )}
 
         {/* Action */}
-        <div className="pt-3 border-t border-border/50">
+        <div className="pt-3 border-t border-[#ECEDF0]">
           <a
             href={`https://${domain}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-medium text-primary hover:underline"
+            className="text-[13px] font-semibold text-[#0038FF] hover:text-[#0036D7] transition-colors duration-150 inline-flex items-center gap-1"
           >
-            Visit Website <span className="inline-block group-hover:translate-x-0.5 transition-transform">→</span>
+            Visit Website
+            <span className="inline-block group-hover:translate-x-0.5 transition-transform duration-150">&rarr;</span>
           </a>
         </div>
       </CardContent>

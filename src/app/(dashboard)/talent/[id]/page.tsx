@@ -4,8 +4,9 @@ import { getSession } from '@/lib/auth/session'
 import { getContactById } from '@/lib/bridge-api/users'
 import { prisma } from '@/lib/db/prisma'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { ArrowLeft, MapPin, Zap } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -97,11 +98,14 @@ export default async function TalentProfilePage({ params }: PageProps) {
   const tags = contact?.tags ?? []
 
   return (
-    <div className="px-8 pt-6 pb-8">
+    <div className="px-6 pt-6 pb-8">
       <div className="max-w-3xl mx-auto">
         {/* Back */}
-        <Link href="/talent" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m0 0l7 7m-7-7l7-7" /></svg>
+        <Link
+          href="/talent"
+          className="text-[13px] text-[#81879C] hover:text-[#0D1531] mb-4 inline-flex items-center gap-1.5 transition-colors duration-150"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
           Back to directory
         </Link>
 
@@ -118,29 +122,33 @@ export default async function TalentProfilePage({ params }: PageProps) {
                   className="w-16 h-16 rounded-full object-cover flex-shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary font-bold text-xl">{initials}</span>
+                <div className="w-16 h-16 rounded-full bg-[#F2F5FF] flex items-center justify-center flex-shrink-0">
+                  <span className="text-[#0038FF] font-bold text-xl">{initials}</span>
                 </div>
               )}
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight">{name}</h1>
+                  <h1 className="text-[20px] font-bold text-[#0D1531] tracking-tight">{name}</h1>
                   {isSuperConnector && (
                     <span
                       title="Super Connector"
-                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[12px] font-medium bg-[#FCF4E6] text-[#714A00] border border-[#FBEFD9]"
                     >
-                      ⚡ Super Connector
+                      <Zap className="w-3 h-3 fill-[#E19500] text-[#E19500]" />
+                      Super Connector
                     </span>
                   )}
                 </div>
                 {(position || company) && (
-                  <p className="text-muted-foreground mt-0.5">
+                  <p className="text-[14px] text-[#3D445A] mt-0.5">
                     {[position, company].filter(Boolean).join(' at ')}
                   </p>
                 )}
                 {location && (
-                  <p className="text-sm text-muted-foreground mt-0.5">📍 {location}</p>
+                  <p className="text-[13px] text-[#676C7E] mt-0.5 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                    {location}
+                  </p>
                 )}
 
                 <div className="flex gap-2 mt-3">
@@ -167,7 +175,7 @@ export default async function TalentProfilePage({ params }: PageProps) {
             </div>
 
             {bio && (
-              <p className="text-sm text-muted-foreground mt-4 leading-relaxed">{bio}</p>
+              <p className="text-[14px] text-[#676C7E] mt-4 leading-relaxed">{bio}</p>
             )}
           </CardContent>
         </Card>
@@ -175,33 +183,33 @@ export default async function TalentProfilePage({ params }: PageProps) {
         {/* ICP — roles and industries */}
         {icp && (icp.roles?.length || icp.industries?.length) ? (
           <Card className="card-elevated mb-6">
-            <CardHeader>
-              <CardTitle>Background & Interests</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {icp.roles && icp.roles.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-1.5">Roles</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {icp.roles.map((r) => (
-                      <Badge key={r} variant="secondary">{r}</Badge>
-                    ))}
+            <CardContent className="pt-6">
+              <h2 className="text-[16px] font-semibold text-[#0D1531] mb-4">Background & Interests</h2>
+              <div className="space-y-3">
+                {icp.roles && icp.roles.length > 0 && (
+                  <div>
+                    <p className="text-[13px] font-medium text-[#3D445A] mb-1.5">Roles</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {icp.roles.map((r) => (
+                        <Badge key={r} variant="info">{r}</Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {icp.industries && icp.industries.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-1.5">Industries</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {icp.industries.map((ind) => (
-                      <Badge key={ind} variant="outline">{ind}</Badge>
-                    ))}
+                )}
+                {icp.industries && icp.industries.length > 0 && (
+                  <div>
+                    <p className="text-[13px] font-medium text-[#3D445A] mb-1.5">Industries</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {icp.industries.map((ind) => (
+                        <Badge key={ind} variant="default">{ind}</Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              {icp.description && (
-                <p className="text-sm text-muted-foreground">{icp.description}</p>
-              )}
+                )}
+                {icp.description && (
+                  <p className="text-[14px] text-[#676C7E]">{icp.description}</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         ) : null}
@@ -209,13 +217,11 @@ export default async function TalentProfilePage({ params }: PageProps) {
         {/* Networks */}
         {tags.length > 0 && (
           <Card className="card-elevated mb-6">
-            <CardHeader>
-              <CardTitle>Networks</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
+              <h2 className="text-[16px] font-semibold text-[#0D1531] mb-4">Networks</h2>
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
-                  <Badge key={tag.id} variant="outline" className="text-sm">
+                  <Badge key={tag.id} variant="default">
                     {tag.name}
                   </Badge>
                 ))}
