@@ -45,6 +45,21 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 - Talent pools, events, messaging
 - AI matching, recommended jobs
 
+### Bridge Design System
+The app uses the **Bridge Design System** (skills defined in `bridge-claude-skills/`):
+- **Primary color:** Royal `#0038FF`
+- **Font:** Mulish (400, 500, 600, 700 weights)
+- **Page background:** Slate 05 `#F9F9FA`
+- **Color palette:** Charcoal (`#0D1531`), Charcoal 80 (`#3D445A`), Charcoal 70 (`#676C7E`), Slate 100 (`#81879C`), Slate 80 (`#9A9FB0`), Slate 60 (`#B3B7C4`), Slate 30 (`#D9DBE1`), Slate 15 (`#ECEDF0`), Slate 10 (`#F2F3F5`), Slate 05 (`#F9F9FA`)
+- **Shadows:** Ds1 `0px 1px 3px rgba(0,0,0,0.1)`, Ds2 `0px 3px 10px rgba(0,0,0,0.1)`, Ds3 `0px 6px 20px rgba(0,0,0,0.1)`, Hover `0px 6px 20px rgba(0,0,0,0.15)`
+- **Spacing:** 8px grid only
+- **Cards:** `rounded-xl` (12px), Ds1 resting, Hover shadow on hover
+- **Badges:** `rounded` (4px), 6 variants: default, info, success, warning, error, purple
+- **Buttons/Search/Filters:** `rounded-full` (pill shape)
+- **Icons:** Lucide only, NEVER emoji
+- **Transitions:** 150ms for color, 200ms for shadow/transform, 300ms ease-out for entrance animations
+- **Design tokens:** All defined as CSS variables in `src/app/globals.css`
+
 ### Layout
 - **Top nav only** — no sidebar navigation. The `Sidebar` component exists at `src/components/layout/sidebar.tsx` but is NOT used in the layout.
 - **Dashboard layout** (`src/app/(dashboard)/layout.tsx`) renders only `<TopNav>` + `<main>` (full-width content).
@@ -67,7 +82,7 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 ## Tech Stack
 
 - **Frontend:** Next.js 16.x (App Router, Server Components, Turbopack)
-- **UI:** Tailwind CSS + shadcn/ui
+- **UI:** Tailwind CSS + shadcn/ui + Bridge Design System
 - **Backend:** Next.js API routes + Bridge Rails API
 - **Database:** Supabase PostgreSQL via Prisma ORM (with `@prisma/adapter-pg`)
 - **Auth:** Bridge JWT SSO
@@ -197,9 +212,13 @@ bridge-talent-portal/
 │   │   │   ├── top-nav.tsx                ← Top navigation (Talent + Jobs links, user dropdown)
 │   │   │   └── sidebar.tsx                ← NOT USED (kept for future)
 │   │   ├── talent/
-│   │   │   ├── talent-card.tsx            ← Member card component
-│   │   │   ├── talent-directory-client.tsx ← Directory grid + search + role filters
-│   │   │   └── talent-search-bar.tsx      ← Search input
+│   │   │   ├── talent-card.tsx            ← Member card component (Bridge tokens, Lucide icons)
+│   │   │   ├── talent-directory-client.tsx ← Directory grid + empty states (search/roles moved to page)
+│   │   │   ├── talent-search-bar.tsx      ← Inline search input (39px, pill, white bg)
+│   │   │   ├── role-filter-dropdown.tsx   ← Role filter dropdown (replaces inline chips)
+│   │   │   ├── view-toggle.tsx            ← People/Companies toggle (37px, Slate 05 bg)
+│   │   │   ├── company-card.tsx           ← Company card with logo + avatar preview
+│   │   │   └── company-directory-client.tsx ← Company grid + empty states
 │   │   ├── jobs/
 │   │   │   ├── job-card.tsx               ← Job listing card (with favicons + source badge)
 │   │   │   ├── job-filters.tsx            ← Search + filter dropdowns + VC network filter
@@ -234,6 +253,12 @@ bridge-talent-portal/
 │   │       ├── ashby-client.ts            ← Ashby public Job Board API client
 │   │       └── ats-config.ts              ← Portfolio company → ATS provider mapping
 │   └── types/prisma.ts                    ← Re-exports Prisma models
+├── bridge-claude-skills/                  ← Bridge Design System skills (authoritative)
+│   ├── bridge-design-system/SKILL.md      ← Design tokens, colors, typography, spacing
+│   ├── frontend-developer/SKILL.md        ← Implementation patterns + references/
+│   ├── ui-designer/SKILL.md               ← Visual design principles
+│   ├── ux-consultant/SKILL.md             ← UX audit heuristics
+│   └── ux-copywriter/SKILL.md             ← Copy patterns, voice/tone
 ├── specs/                                 ← Product spec docs
 ├── technical/                             ← Architecture & API docs
 ├── design/                                ← Design spec docs
@@ -320,6 +345,11 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Workable public API** — `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` — no auth needed. Returns `{ jobs: [...], total: N }`. Only provides title, department, location, shortcode, URL — no full descriptions.
 - **Portfolio ATS config** — Static mapping in `src/lib/sync/ats-config.ts`. Currently only Quantive uses Workable; other 7 companies are `manual_only`. Add new entries when portfolio companies adopt ATS with public APIs.
 - **Profile pics** — Most Bridge users don't have profile pics. The app uses initials avatars as fallback.
+- **Bridge Design System skills** — `bridge-claude-skills/` folder contains authoritative skill files: `bridge-design-system/SKILL.md` (tokens, colors, typography), `frontend-developer/SKILL.md` (implementation patterns), `ui-designer/SKILL.md`, `ux-consultant/SKILL.md`, `ux-copywriter/SKILL.md`. Always follow these for UI changes.
+- **Talent directory controls row** — Search bar, role filter dropdown, vertical divider, and view toggle are all rendered on ONE horizontal flex row in `talent/page.tsx` (not inside child components). The client components (`talent-directory-client.tsx`, `company-directory-client.tsx`) no longer render their own search bars or role filters.
+- **Role filter is a dropdown** — `role-filter-dropdown.tsx` uses shadcn `DropdownMenu` (not inline chips). The role categories data is defined in `src/lib/role-categories.ts` and passed as props from the page.
+- **Badge system** — `src/components/ui/badge.tsx` has 6 Bridge variants: `default` (Slate), `info` (Sky/Royal), `success` (Kelly), `warning` (Honey), `error` (Ruby), `purple`. Legacy variants (`secondary`, `outline`, `destructive`) are kept for backward compat.
+- **Talent directory header** — Uses a 36px Royal blue rounded-12px icon with Users lucide icon + 18px Bold title inline, with subtitle below. This pattern is defined in the Figma design (node `4892:2527`).
 
 ---
 
@@ -331,8 +361,11 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Change page layout | `src/app/(dashboard)/layout.tsx` |
 | Modify talent cards | `src/components/talent/talent-card.tsx` |
 | Modify talent page | `src/app/(dashboard)/talent/page.tsx` |
-| Modify role filters | `src/lib/role-categories.ts` |
+| Modify role filter dropdown | `src/components/talent/role-filter-dropdown.tsx` |
+| Modify role category definitions | `src/lib/role-categories.ts` |
 | Modify search | `src/components/talent/talent-search-bar.tsx` |
+| Modify view toggle | `src/components/talent/view-toggle.tsx` |
+| Modify design tokens | `src/app/globals.css` |
 | Modify jobs page | `src/app/(dashboard)/jobs/page.tsx` |
 | Modify job cards | `src/components/jobs/job-card.tsx` |
 | Modify job filters | `src/components/jobs/job-filters.tsx` |
