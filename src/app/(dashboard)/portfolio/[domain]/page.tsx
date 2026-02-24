@@ -13,6 +13,7 @@ import {
   countPortfolioTalent,
   fetchPortfolioTalent,
 } from '@/lib/portfolio-talent-match'
+import { Pagination } from '@/components/ui/pagination'
 import Link from 'next/link'
 import type { BridgeMember } from '@/lib/bridge-api/types'
 
@@ -91,9 +92,8 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
   ])
 
   // ── Active tab data ──
-  const JOBS_PER_PAGE = 18
-  const COMPANIES_PER_PAGE = 24
-  const TALENT_PER_PAGE = 24
+  const defaultPerPage = tab === 'jobs' ? 18 : 24
+  const perPage = Math.min(50, Math.max(1, parseInt(sParams.per_page || String(defaultPerPage))))
 
   let jobsData: Array<{
     id: string
@@ -131,14 +131,14 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
           applyUrl: true,
         },
         orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * JOBS_PER_PAGE,
-        take: JOBS_PER_PAGE,
+        skip: (page - 1) * perPage,
+        take: perPage,
       })
     }
-    jobsTotalPages = Math.ceil(jobCount / JOBS_PER_PAGE)
+    jobsTotalPages = Math.ceil(jobCount / perPage)
   } else if (tab === 'companies') {
-    companiesTotalPages = Math.ceil(companyCount / COMPANIES_PER_PAGE)
-    pagedCompanies = companies.slice((page - 1) * COMPANIES_PER_PAGE, page * COMPANIES_PER_PAGE)
+    companiesTotalPages = Math.ceil(companyCount / perPage)
+    pagedCompanies = companies.slice((page - 1) * perPage, page * perPage)
 
     // Get job counts for current page's companies only
     if (pagedCompanies.length > 0) {
@@ -156,9 +156,9 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
       emailDomains,
       companyStems,
       page,
-      TALENT_PER_PAGE
+      perPage
     )
-    talentTotalPages = Math.ceil(result.total / TALENT_PER_PAGE)
+    talentTotalPages = Math.ceil(result.total / perPage)
     talentMembers = result.profiles.map(
       (p): BridgeMember => ({
         id: p.bridgeUserId,
@@ -182,11 +182,7 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
   const totalPages =
     tab === 'jobs' ? jobsTotalPages : tab === 'companies' ? companiesTotalPages : talentTotalPages
 
-  const buildUrl = (p: number) => {
-    const parts = [`/portfolio/${encodeURIComponent(decodedDomain)}?tab=${tab}`]
-    if (p > 1) parts.push(`page=${String(p)}`)
-    return parts.join('&')
-  }
+  const portfolioExtraParams: Record<string, string> = { tab }
 
   return (
     <div className="px-8 pt-6 pb-8">
@@ -399,51 +395,7 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1.5 mt-8">
-            {page > 1 && (
-              <a
-                href={buildUrl(page - 1)}
-                className="w-9 h-9 flex items-center justify-center rounded-full text-sm hover:bg-muted transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-              </a>
-            )}
-            {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-              let pageNum: number
-              if (totalPages <= 7) {
-                pageNum = i + 1
-              } else if (page <= 4) {
-                pageNum = i + 1
-              } else if (page >= totalPages - 3) {
-                pageNum = totalPages - 6 + i
-              } else {
-                pageNum = page - 3 + i
-              }
-              return (
-                <a
-                  key={pageNum}
-                  href={buildUrl(pageNum)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
-                    pageNum === page
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {pageNum}
-                </a>
-              )
-            })}
-            {page < totalPages && (
-              <a
-                href={buildUrl(page + 1)}
-                className="w-9 h-9 flex items-center justify-center rounded-full text-sm hover:bg-muted transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </a>
-            )}
-          </div>
-        )}
+        <Pagination page={page} totalPages={totalPages} perPage={perPage} basePath={`/portfolio/${encodeURIComponent(decodedDomain)}`} extraParams={portfolioExtraParams} />
       </div>
     </div>
   )

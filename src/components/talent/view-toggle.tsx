@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { LayoutGrid, List } from 'lucide-react'
+import { TableProperties, List } from 'lucide-react'
 
 interface ViewToggleProps {
   activeView: string
@@ -23,7 +23,7 @@ export function ViewToggle({ activeView }: ViewToggleProps) {
   }
 
   return (
-    <div className="inline-flex items-center gap-1 p-[3px] rounded-full bg-[#F9F9FA] border border-[#ECEDF0] h-[37px] flex-shrink-0">
+    <div className="inline-flex items-center gap-1 p-[3px] rounded-full bg-[#F2F3F5] border border-[#ECEDF0] h-[37px] flex-shrink-0">
       <button
         onClick={() => handleViewChange('people')}
         className={`inline-flex items-center gap-1.5 px-3 h-[31px] text-[13px] font-bold rounded-full transition-all duration-150 ${
@@ -32,7 +32,7 @@ export function ViewToggle({ activeView }: ViewToggleProps) {
             : 'text-[#81879C] hover:text-[#0D1531]'
         }`}
       >
-        <LayoutGrid className="w-3.5 h-3.5" />
+        <TableProperties className="w-3.5 h-3.5" />
         People
       </button>
       <button

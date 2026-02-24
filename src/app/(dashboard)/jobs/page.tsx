@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { JobCard } from '@/components/jobs/job-card'
 import { JobFilters } from '@/components/jobs/job-filters'
+import { Pagination } from '@/components/ui/pagination'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 
@@ -22,7 +23,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const companyDomain = params.company || ''
   const vcDomain = params.vc || ''
   const page = Math.max(1, parseInt(params.page || '1'))
-  const perPage = 20
+  const perPage = Math.min(50, Math.max(1, parseInt(params.per_page || '20')))
 
   // Read VC network names from local DB (fast, single query)
   const networkDomains = session.networkDomains ?? []
@@ -91,15 +92,12 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const totalPages = Math.ceil(total / perPage)
   const canPost = ['company', 'vc', 'admin'].includes(session.role)
 
-  const buildUrl = (p: number) => {
-    const parts = [`/jobs?page=${p}`]
-    if (query) parts.push(`q=${encodeURIComponent(query)}`)
-    if (workType) parts.push(`work_type=${workType}`)
-    if (employmentType) parts.push(`employment_type=${employmentType}`)
-    if (experienceLevel) parts.push(`experience_level=${experienceLevel}`)
-    if (vcDomain) parts.push(`vc=${encodeURIComponent(vcDomain)}`)
-    return parts.join('&')
-  }
+  const jobsExtraParams: Record<string, string> = {}
+  if (query) jobsExtraParams.q = query
+  if (workType) jobsExtraParams.work_type = workType
+  if (employmentType) jobsExtraParams.employment_type = employmentType
+  if (experienceLevel) jobsExtraParams.experience_level = experienceLevel
+  if (vcDomain) jobsExtraParams.vc = vcDomain
 
   const hasAnyFilter = query || workType || employmentType || experienceLevel || vcDomain
 
@@ -151,51 +149,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1.5 mt-8">
-            {page > 1 && (
-              <a
-                href={buildUrl(page - 1)}
-                className="w-9 h-9 flex items-center justify-center rounded-full text-sm hover:bg-muted transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-              </a>
-            )}
-            {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-              let pageNum: number
-              if (totalPages <= 7) {
-                pageNum = i + 1
-              } else if (page <= 4) {
-                pageNum = i + 1
-              } else if (page >= totalPages - 3) {
-                pageNum = totalPages - 6 + i
-              } else {
-                pageNum = page - 3 + i
-              }
-              return (
-                <a
-                  key={pageNum}
-                  href={buildUrl(pageNum)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-full text-sm font-medium transition-colors ${
-                    pageNum === page
-                      ? 'bg-primary text-primary-foreground'
-                      : 'hover:bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {pageNum}
-                </a>
-              )
-            })}
-            {page < totalPages && (
-              <a
-                href={buildUrl(page + 1)}
-                className="w-9 h-9 flex items-center justify-center rounded-full text-sm hover:bg-muted transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-              </a>
-            )}
-          </div>
-        )}
+        <Pagination page={page} totalPages={totalPages} perPage={perPage} basePath="/jobs" extraParams={jobsExtraParams} />
       </div>
     </div>
   )

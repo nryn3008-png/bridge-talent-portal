@@ -69,13 +69,13 @@ The app uses the **Bridge Design System** (skills defined in `bridge-claude-skil
 
 ### Routing
 - `/` → redirects to `/talent`
-- `/talent` → Talent Directory (main page, supports `?role=`, `?q=`, `?page=`)
+- `/talent` → Talent Directory (table view, supports `?role=`, `?q=`, `?page=`, `?per_page=`, `?view=companies`)
 - `/talent/:id` → Profile detail
-- `/jobs` → Job Board (supports `?q=`, `?work_type=`, `?employment_type=`, `?experience_level=`, `?vc=`, `?page=`)
+- `/jobs` → Job Board (supports `?q=`, `?work_type=`, `?employment_type=`, `?experience_level=`, `?vc=`, `?page=`, `?per_page=`)
 - `/jobs/:id` → Job detail with apply (HTML descriptions rendered properly)
 - `/jobs/post` → Post a job (company/vc/admin only)
 - `/portfolio` → VC network listing (reads from cached DB data)
-- `/portfolio/:domain` → VC detail with tabbed layout (supports `?tab=jobs|companies|talent`, `?page=`)
+- `/portfolio/:domain` → VC detail with tabbed layout (supports `?tab=jobs|companies|talent`, `?page=`, `?per_page=`)
 - `/login` → Login page
 - `/introductions` → redirects to `/talent` (placeholder)
 
@@ -353,6 +353,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Role filter is a dropdown** — `role-filter-dropdown.tsx` uses shadcn `DropdownMenu` (not inline chips). The role categories data is defined in `src/lib/role-categories.ts` and passed as props from the page.
 - **Badge system** — `src/components/ui/badge.tsx` has 6 Bridge variants: `default` (Slate), `info` (Sky/Royal), `success` (Kelly), `warning` (Honey), `error` (Ruby), `purple`. Legacy variants (`secondary`, `outline`, `destructive`) are kept for backward compat.
 - **Talent directory header** — Uses a 36px Royal blue rounded-12px icon with Users lucide icon + 18px Bold title inline, with subtitle below. This pattern is defined in the Figma design (node `4892:2527`).
+- **Talent directory is a table view** — `talent-directory-client.tsx` renders an HTML `<table>` (not a card grid). Columns: Name (avatar + link), Position, Company, Location, Roles (badges), Bio. The old `talent-card.tsx` is no longer imported by the directory but kept for use in portfolio talent tab.
+- **Shared Pagination component** — `src/components/ui/pagination.tsx` is a `'use client'` component used on all 3 paginated pages (talent, jobs, portfolio). Figma design (node `4894:2636`): "Page X of Y" text + prev/next chevron buttons (pill, Slate 60 border) + rows-per-page dropdown (10/20/50). Props: `page`, `totalPages`, `perPage`, `basePath`, `extraParams`. Does NOT accept functions as props (Server→Client serialization boundary). All pages support `?per_page=` URL param.
+- **View toggle icons** — People tab uses `TableProperties` icon (was `LayoutGrid`), Companies tab uses `List`. Toggle outer bg is Slate 10 (`#F2F3F5`).
 
 ---
 
@@ -364,7 +367,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Change sidebar nav | `src/components/layout/sidebar.tsx` |
 | Change page layout | `src/app/(dashboard)/layout.tsx` |
 | API health check | `src/app/api/health/route.ts` |
-| Modify talent cards | `src/components/talent/talent-card.tsx` |
+| Modify pagination | `src/components/ui/pagination.tsx` |
+| Modify talent table | `src/components/talent/talent-directory-client.tsx` |
+| Modify talent cards (portfolio) | `src/components/talent/talent-card.tsx` |
 | Modify talent page | `src/app/(dashboard)/talent/page.tsx` |
 | Modify role filter dropdown | `src/components/talent/role-filter-dropdown.tsx` |
 | Modify role category definitions | `src/lib/role-categories.ts` |

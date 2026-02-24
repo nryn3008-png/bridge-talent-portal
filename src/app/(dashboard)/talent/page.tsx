@@ -10,78 +10,13 @@ import { ViewToggle } from '@/components/talent/view-toggle'
 import { RoleFilterDropdown } from '@/components/talent/role-filter-dropdown'
 import { ROLE_CATEGORIES, buildPositionFilter } from '@/lib/role-categories'
 import { buildCompanyExclusionWhere, buildCompanySearchWhere } from '@/lib/company-utils'
-import { ChevronLeft, ChevronRight, Users } from 'lucide-react'
+import { Pagination } from '@/components/ui/pagination'
+import { Users } from 'lucide-react'
 import type { BridgeMember } from '@/lib/bridge-api/types'
 import type { CompanyPreviewMember } from '@/components/talent/company-card'
 
 interface PageProps {
   searchParams: Promise<Record<string, string | undefined>>
-}
-
-/**
- * Pagination component — Bridge Design System
- * 32px height (Small button), rounded-full, 14px SemiBold
- * Active: Royal bg + white text. Inactive: Charcoal 70, hover Slate 10.
- */
-function Pagination({
-  page,
-  totalPages,
-  buildUrl,
-}: {
-  page: number
-  totalPages: number
-  buildUrl: (p: number) => string
-}) {
-  if (totalPages <= 1) return null
-
-  return (
-    <nav aria-label="Pagination" className="flex items-center justify-center gap-1 mt-8">
-      {page > 1 && (
-        <a
-          href={buildUrl(page - 1)}
-          aria-label="Previous page"
-          className="w-8 h-8 flex items-center justify-center rounded-full text-[#676C7E] hover:bg-[#F2F3F5] transition-colors duration-150"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </a>
-      )}
-      {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-        let pageNum: number
-        if (totalPages <= 7) {
-          pageNum = i + 1
-        } else if (page <= 4) {
-          pageNum = i + 1
-        } else if (page >= totalPages - 3) {
-          pageNum = totalPages - 6 + i
-        } else {
-          pageNum = page - 3 + i
-        }
-        return (
-          <a
-            key={pageNum}
-            href={buildUrl(pageNum)}
-            aria-current={pageNum === page ? 'page' : undefined}
-            className={`w-8 h-8 flex items-center justify-center rounded-full text-[14px] font-semibold transition-colors duration-150 ${
-              pageNum === page
-                ? 'bg-[#0038FF] text-white'
-                : 'text-[#676C7E] hover:bg-[#F2F3F5] hover:text-[#0D1531]'
-            }`}
-          >
-            {pageNum}
-          </a>
-        )
-      })}
-      {page < totalPages && (
-        <a
-          href={buildUrl(page + 1)}
-          aria-label="Next page"
-          className="w-8 h-8 flex items-center justify-center rounded-full text-[#676C7E] hover:bg-[#F2F3F5] transition-colors duration-150"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </a>
-      )}
-    </nav>
-  )
 }
 
 export default async function TalentDirectoryPage({ searchParams }: PageProps) {
@@ -97,7 +32,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
   const companyFilter = params.company || ''
   const view = params.view || 'people'
   const page = Math.max(1, parseInt(params.page || '1'))
-  const perPage = 24
+  const perPage = Math.min(50, Math.max(1, parseInt(params.per_page || '20')))
 
   // ═══════════════════════════════════════════════
   // COMPANIES VIEW
@@ -188,11 +123,8 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
 
     const totalPages = Math.ceil(totalCount / perPage)
 
-    const buildUrl = (p: number) => {
-      const parts = [`/talent?view=companies&page=${p}`]
-      if (query) parts.push(`q=${encodeURIComponent(query)}`)
-      return parts.join('&')
-    }
+    const companiesExtraParams: Record<string, string> = { view: 'companies' }
+    if (query) companiesExtraParams.q = query
 
     return (
       <div className="px-6 pt-6 pb-8">
@@ -217,16 +149,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
             <ViewToggle activeView="companies" />
           </div>
 
-          {/* Count text — Figma: 12px Regular, Slate 60, tracking 0.4px */}
-          {totalCount > 0 && (
-            <p className="text-[12px] text-[#B3B7C4] tracking-[0.4px] mt-6 mb-4">
-              {totalCount.toLocaleString()} {totalCount === 1 ? 'company' : 'companies'}
-            </p>
-          )}
-
-          {totalCount === 0 && (
-            <div className="mt-6" />
-          )}
+          <div className="mt-6" />
 
           <CompanyDirectoryClient
             companies={companies}
@@ -234,7 +157,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
             query={query}
           />
 
-          <Pagination page={page} totalPages={totalPages} buildUrl={buildUrl} />
+          <Pagination page={page} totalPages={totalPages} perPage={perPage} basePath="/talent" extraParams={companiesExtraParams} />
         </div>
       </div>
     )
@@ -336,26 +259,10 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
 
   const totalPages = Math.ceil(totalCount / perPage)
 
-  const buildUrl = (p: number) => {
-    const parts = [`/talent?page=${p}`]
-    if (query) parts.push(`q=${encodeURIComponent(query)}`)
-    if (roleFilter) parts.push(`role=${encodeURIComponent(roleFilter)}`)
-    if (companyFilter) parts.push(`company=${encodeURIComponent(companyFilter)}`)
-    return parts.join('&')
-  }
-
-  // Count label — context-aware
-  const countLabel = (() => {
-    if (totalCount === 0) return null
-    if (companyFilter) {
-      return `${totalCount.toLocaleString()} member${totalCount !== 1 ? 's' : ''} at ${companyFilter}`
-    }
-    if (roleFilter) {
-      const roleLabel = ROLE_CATEGORIES.find((c) => c.id === roleFilter)?.label ?? roleFilter
-      return `${totalCount.toLocaleString()} member${totalCount !== 1 ? 's' : ''} in ${roleLabel}`
-    }
-    return `${totalCount.toLocaleString()} member${totalCount !== 1 ? 's' : ''}`
-  })()
+  const peopleExtraParams: Record<string, string> = {}
+  if (query) peopleExtraParams.q = query
+  if (roleFilter) peopleExtraParams.role = roleFilter
+  if (companyFilter) peopleExtraParams.company = companyFilter
 
   return (
     <div className="px-6 pt-6 pb-8">
@@ -384,16 +291,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
           <ViewToggle activeView="people" />
         </div>
 
-        {/* Count text — Figma: 12px Regular, Slate 60, tracking 0.4px */}
-        {countLabel && (
-          <p className="text-[12px] text-[#B3B7C4] tracking-[0.4px] mt-6 mb-4">
-            {countLabel}
-          </p>
-        )}
-
-        {!countLabel && (
-          <div className="mt-6" />
-        )}
+        <div className="mt-6" />
 
         {/* Sync warning — Bridge warning pattern: Honey 10 bg, Honey S10 text */}
         {totalCount > 0 && !hasSyncedProfiles && (
@@ -413,7 +311,7 @@ export default async function TalentDirectoryPage({ searchParams }: PageProps) {
           companyFilter={companyFilter || undefined}
         />
 
-        <Pagination page={page} totalPages={totalPages} buildUrl={buildUrl} />
+        <Pagination page={page} totalPages={totalPages} perPage={perPage} basePath="/talent" extraParams={peopleExtraParams} />
       </div>
     </div>
   )
