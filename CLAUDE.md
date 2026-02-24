@@ -33,7 +33,7 @@ The app has two main features: a **Talent Directory** (21,720+ Bridge members) a
 - **ATS Cache** — `PortfolioAtsCache` table stores discovered ATS mappings for fast scheduled refreshes
 - **Company Favicons** — Job cards, portfolio VC cards, and portfolio company cards all show logos via Google's favicon API with CSS initials fallback (server-component compatible, no `onError` needed)
 - **Talent-Portfolio Matching** — VC detail page talent tab matches Bridge members to portfolio companies via email domain + company name stem matching (raw SQL)
-- **Top-nav only layout** — No sidebar; nav links for Talent Directory + Jobs + Portfolio; user dropdown with profile link + sign-out
+- **Top nav + sidebar layout** — Fixed top nav (56px) with sidebar (240px); user avatar dropdown in top nav; nav links in sidebar with count badges
 - **Bridge JWT SSO** — Login via Bridge API key (dev) or JWT
 - **Supabase PostgreSQL** — 21,720 profiles + 5,976 portfolio companies + jobs stored with real data
 - **Bulk sync** — Fetches all profiles from Bridge API via `GET /contacts/:id`
@@ -61,9 +61,11 @@ The app uses the **Bridge Design System** (skills defined in `bridge-claude-skil
 - **Design tokens:** All defined as CSS variables in `src/app/globals.css`
 
 ### Layout
-- **Top nav only** — no sidebar navigation. The `Sidebar` component exists at `src/components/layout/sidebar.tsx` but is NOT used in the layout.
-- **Dashboard layout** (`src/app/(dashboard)/layout.tsx`) renders only `<TopNav>` + `<main>` (full-width content).
-- **Top nav** includes: Bridge logo, "Talent Directory" link, "Jobs" link, user avatar dropdown (name, email, role badge, Your Profile, sign out).
+- **Top nav + sidebar** — Fixed top nav (56px) with sidebar (240px) below it.
+- **Top nav** (`src/components/layout/top-nav.tsx`) — Bridge logo + "Talent & Job Board" subtitle on left, API health badge (dev only) + user avatar dropdown on right. No nav links in top nav.
+- **Sidebar** (`src/components/layout/sidebar.tsx`) — Fixed left sidebar with "ADMIN" section label, 3 nav links (Talent Directory, Jobs, Portfolio) with Lucide icons (16px) + count badges, active state uses Royal 07 bg + Royal text. "Need help?" footer link. White background, Slate 15 right border.
+- **Dashboard layout** (`src/app/(dashboard)/layout.tsx`) renders `<TopNav>` + `<Sidebar>` + `<main className="pt-14 pl-60">`. Layout fetches sidebar counts (talent, jobs, portfolio) via `Promise.all` from Prisma.
+- **API health badge** — Dev-only (`NODE_ENV !== 'production'`). Calls `GET /api/health` on mount + every 30s. Shows green/yellow/red dot + status text. Hover popover shows API URL, response time, last checked. Hidden entirely in production.
 
 ### Routing
 - `/` → redirects to `/talent`
@@ -189,7 +191,7 @@ bridge-talent-portal/
 │   ├── app/
 │   │   ├── (auth)/login/page.tsx          ← Login page
 │   │   ├── (dashboard)/
-│   │   │   ├── layout.tsx                 ← Top-nav only layout (no sidebar)
+│   │   │   ├── layout.tsx                 ← Dashboard layout (top-nav + sidebar + main)
 │   │   │   ├── page.tsx                   ← Redirects to /talent
 │   │   │   ├── talent/page.tsx            ← Main talent directory (role filters)
 │   │   │   ├── talent/[id]/page.tsx       ← Profile detail
@@ -202,6 +204,7 @@ bridge-talent-portal/
 │   │   │   └── introductions/page.tsx     ← Redirects to /talent
 │   │   └── api/
 │   │       ├── auth/                      ← Login, logout, me
+│   │       ├── health/route.ts            ← Bridge API health check (dev, no auth)
 │   │       ├── sync/route.ts              ← Profile + job sync trigger (manual, auth required)
 │   │       ├── cron/route.ts             ← Scheduled sync endpoint (Vercel cron, CRON_SECRET auth)
 │   │       ├── talent/                    ← Talent CRUD API
@@ -209,8 +212,8 @@ bridge-talent-portal/
 │   │       └── ...                        ← Other API routes (scaffolded)
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── top-nav.tsx                ← Top navigation (Talent + Jobs links, user dropdown)
-│   │   │   └── sidebar.tsx                ← NOT USED (kept for future)
+│   │   │   ├── top-nav.tsx                ← Top navigation (logo + subtitle + API badge + avatar)
+│   │   │   └── sidebar.tsx                ← Sidebar navigation (3 nav links + counts + help footer)
 │   │   ├── talent/
 │   │   │   ├── talent-card.tsx            ← Member card component (Bridge tokens, Lucide icons)
 │   │   │   ├── talent-directory-client.tsx ← Directory grid + empty states (search/roles moved to page)
@@ -326,7 +329,7 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 
 ## Codebase Gotchas
 
-- **No sidebar** — Layout uses top-nav only. The sidebar component file exists but is not imported anywhere.
+- **Sidebar is active** — Layout uses top-nav + sidebar. Sidebar is a client component (`usePathname` for active state), counts are passed as props from the server layout.
 - **`src/types/prisma.ts`** — manually re-exports Prisma models; update it whenever models change in `prisma/schema.prisma`
 - **DEV_SESSION fallback** — `src/app/(dashboard)/layout.tsx` uses `DEV_SESSION` (role: `admin`, bridgeJwt from `BRIDGE_API_KEY`) when no session cookie exists. Individual pages still call `getSession()` and redirect to `/login` if null.
 - **Dev login bypass** — POST `/api/auth/login` with `{ useApiKey: true, apiKey: "<bridge_jwt>" }` authenticates with a raw JWT (dev-only). The `BRIDGE_API_KEY` in `.env.local` IS a valid Bridge user JWT for Connor Murphy (CEO).
@@ -357,8 +360,10 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 
 | Task | File(s) |
 |---|---|
-| Change navigation | `src/components/layout/top-nav.tsx` |
+| Change top nav | `src/components/layout/top-nav.tsx` |
+| Change sidebar nav | `src/components/layout/sidebar.tsx` |
 | Change page layout | `src/app/(dashboard)/layout.tsx` |
+| API health check | `src/app/api/health/route.ts` |
 | Modify talent cards | `src/components/talent/talent-card.tsx` |
 | Modify talent page | `src/app/(dashboard)/talent/page.tsx` |
 | Modify role filter dropdown | `src/components/talent/role-filter-dropdown.tsx` |

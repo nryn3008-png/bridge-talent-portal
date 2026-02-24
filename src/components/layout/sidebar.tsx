@@ -1,75 +1,86 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import type { SessionPayload } from '@/lib/auth/session'
+import { usePathname } from 'next/navigation'
+import { Users, Briefcase, Building2, HelpCircle } from 'lucide-react'
 
-interface SidebarProps {
-  session: SessionPayload
+interface NavItem {
+  href: string
+  label: string
+  icon: typeof Users
+  countKey: 'talent' | 'jobs' | 'portfolio'
 }
 
-export function Sidebar({ session }: SidebarProps) {
-  const pathname = usePathname()
-  const router = useRouter()
+const NAV_LINKS: NavItem[] = [
+  { href: '/talent', label: 'Talent Directory', icon: Users, countKey: 'talent' },
+  { href: '/jobs', label: 'Jobs', icon: Briefcase, countKey: 'jobs' },
+  { href: '/portfolio', label: 'Portfolio', icon: Building2, countKey: 'portfolio' },
+]
 
-  const isActive = pathname === '/talent' || pathname.startsWith('/talent/')
-
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' })
-    router.push('/login')
-    router.refresh()
-    toast.success('Signed out')
+function formatCount(n: number): string {
+  if (n >= 1000) {
+    const k = n / 1000
+    return k >= 10 ? `${Math.round(k)}K` : `${k.toFixed(1).replace(/\.0$/, '')}K`
   }
+  return String(n)
+}
+
+interface SidebarProps {
+  counts?: {
+    talent?: number
+    jobs?: number
+    portfolio?: number
+  }
+}
+
+export function Sidebar({ counts }: SidebarProps) {
+  const pathname = usePathname()
 
   return (
-    <aside className="flex flex-col w-[240px] min-h-[calc(100vh-64px)] bg-card border-r flex-shrink-0">
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        <Link href="/talent">
-          <span
-            className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-              isActive
-                ? 'bg-primary/10 text-primary border-l-[3px] border-primary rounded-l-none -ml-3 pl-[calc(0.75rem+1px)]'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-            )}
-          >
-            <span className="text-base">👥</span>
-            Talent Directory
-          </span>
-        </Link>
+    <aside className="fixed top-14 left-0 bottom-0 w-60 bg-white border-r border-[#ECEDF0] z-40 flex flex-col">
+      {/* Section label */}
+      <div className="px-4 pt-3 pb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-[1px] text-[#B3B7C4]">
+          Admin
+        </span>
+      </div>
+
+      {/* Nav links */}
+      <nav className="flex-1 px-3 flex flex-col gap-1">
+        {NAV_LINKS.map(({ href, label, icon: Icon, countKey }) => {
+          const isActive = pathname === href || pathname.startsWith(href + '/')
+          const count = counts?.[countKey]
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[14px] tracking-[0.4px] transition-colors duration-150 ${
+                isActive
+                  ? 'bg-[#EDF1FF] text-[#0038FF] font-medium'
+                  : 'text-[#3D445A] font-normal hover:bg-[#F9F9FA]'
+              }`}
+            >
+              <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#0038FF]' : 'text-[#81879C]'}`} />
+              <span className="flex-1 min-w-0">{label}</span>
+              {count !== undefined && count > 0 && (
+                <span className="text-[#B3B7C4] text-[13px] font-normal tracking-[0.4px] flex-shrink-0">
+                  {formatCount(count)}
+                </span>
+              )}
+            </Link>
+          )
+        })}
       </nav>
 
-      {/* User footer */}
-      <div className="px-3 py-4 border-t space-y-2">
-        <div className="px-3 py-2">
-          <p className="text-sm font-medium truncate">
-            {session.firstName} {session.lastName}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">{session.email}</p>
-          <span
-            className={cn(
-              'inline-flex items-center mt-1 px-2 py-0.5 rounded-full text-xs font-medium capitalize',
-              session.role === 'vc' && 'badge-vc',
-              session.role === 'company' && 'bg-orange-50 text-orange-700 border border-orange-200',
-              session.role === 'talent' && 'bg-green-50 text-green-700 border border-green-200',
-              session.role === 'admin' && 'bg-gray-100 text-gray-700 border border-gray-200',
-            )}
-          >
-            {session.role}
-          </span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-muted-foreground"
-          onClick={handleLogout}
+      {/* Footer — Need help? */}
+      <div className="border-t border-[#ECEDF0] px-3 py-2">
+        <a
+          href="mailto:support@brdg.app"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-[14px] font-normal text-[#3D445A] tracking-[0.4px] hover:bg-[#F9F9FA] transition-colors duration-150"
         >
-          Sign out
-        </Button>
+          <HelpCircle className="w-4 h-4 flex-shrink-0 text-[#81879C]" />
+          <span>Need help?</span>
+        </a>
       </div>
     </aside>
   )
