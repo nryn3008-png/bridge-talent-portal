@@ -2,7 +2,7 @@
 // Maps company domains to their Applicant Tracking System providers
 
 export interface AtsConfig {
-  provider: 'workable' | 'greenhouse' | 'lever' | 'ashby' | 'recruitee' | 'smartrecruiters' | 'personio' | 'manual_only'
+  provider: 'workable' | 'greenhouse' | 'lever' | 'ashby' | 'recruitee' | 'smartrecruiters' | 'personio' | 'pinpoint' | 'rippling' | 'workday' | 'successfactors' | 'comeet' | 'paylocity' | 'manual_only'
   accountSlug?: string   // ATS account slug for public API (Workable, Greenhouse, Lever, or Ashby)
   companyName: string
   companyDomain: string

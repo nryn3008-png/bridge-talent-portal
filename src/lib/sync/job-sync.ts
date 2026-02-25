@@ -7,6 +7,12 @@ import { fetchAshbyJobs, mapAshbyJobToJobData } from './ashby-client'
 import { fetchRecruiteeJobs, mapRecruiteeJobToJobData } from './recruitee-client'
 import { fetchSmartRecruitersJobs, mapSmartRecruitersJobToJobData } from './smartrecruiters-client'
 import { fetchPersonioJobs, mapPersonioJobToJobData } from './personio-client'
+import { fetchPinpointJobs, mapPinpointJobToJobData } from './pinpoint-client'
+import { fetchRipplingJobs, mapRipplingJobToJobData } from './rippling-client'
+import { fetchWorkdayJobs, mapWorkdayJobToJobData } from './workday-client'
+import { fetchSuccessFactorsJobs, mapSuccessFactorsJobToJobData } from './successfactors-client'
+import { fetchComeetJobs, mapComeetJobToJobData } from './comeet-client'
+import { fetchPaylocityJobs, mapPaylocityJobToJobData } from './paylocity-client'
 import { discoverAtsJobs, type AtsProvider, type MappedJobData } from './ats-discovery'
 
 interface JobSyncResult {
@@ -442,6 +448,30 @@ async function fetchJobsFromProvider(
     case 'personio': {
       const jobs = await fetchPersonioJobs(slug)
       return jobs.map((j) => mapPersonioJobToJobData(j, companyDomain))
+    }
+    case 'pinpoint': {
+      const jobs = await fetchPinpointJobs(slug)
+      return jobs.map((j) => mapPinpointJobToJobData(j, companyDomain))
+    }
+    case 'rippling': {
+      const jobs = await fetchRipplingJobs(slug)
+      return jobs.map((j) => mapRipplingJobToJobData(j, companyDomain))
+    }
+    case 'workday': {
+      const jobs = await fetchWorkdayJobs(slug)
+      return jobs.map((j) => mapWorkdayJobToJobData(j, companyDomain, slug))
+    }
+    case 'successfactors': {
+      const jobs = await fetchSuccessFactorsJobs(slug)
+      return jobs.map((j) => mapSuccessFactorsJobToJobData(j, companyDomain))
+    }
+    case 'comeet': {
+      const jobs = await fetchComeetJobs(slug)
+      return jobs.map((j) => mapComeetJobToJobData(j, companyDomain))
+    }
+    case 'paylocity': {
+      const jobs = await fetchPaylocityJobs(slug)
+      return jobs.map((j) => mapPaylocityJobToJobData(j, companyDomain))
     }
     default:
       throw new Error(`Unknown ATS provider: ${provider}`)

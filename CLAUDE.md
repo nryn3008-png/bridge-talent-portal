@@ -11,8 +11,8 @@
 3. **Never create seed files with fake users/jobs.**
 4. **If you need test data, fetch it from the real Bridge API** using the development API key.
 5. **Environment variables are in `.env.local`** — never commit this file. Always read from `process.env`.
-6. **Bridge API + public ATS APIs are the data sources.** We integrate 7 ATS public job board APIs: Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, and Personio (all free, no auth). Do NOT use any third-party data providers beyond these.
-7. **No external API keys needed** — only BRIDGE_API_KEY. All ATS APIs (Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio) are public/unauthenticated.
+6. **Bridge API + public ATS APIs are the data sources.** We integrate 13 ATS public job board APIs: Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio (Tier 1 — documented), Pinpoint, Rippling (Tier 1 — documented), Workday, SAP SuccessFactors, Comeet, and Paylocity (Tier 2 — undocumented but functional). All free, no auth. Do NOT use any third-party data providers beyond these.
+7. **No external API keys needed** — only BRIDGE_API_KEY. All 13 ATS APIs are public/unauthenticated.
 
 ---
 
@@ -25,7 +25,7 @@ The app has two main features: a **Job Board** (sourced from portfolio company A
 - **Job Detail Pages** (`/jobs/:id`) — Full job details with HTML rendering for ATS descriptions + apply button
 - **Job Posting** (`/jobs/post`) — Manual job posting form (company/vc/admin only)
 - **Portfolio Pages** (`/portfolio`, `/portfolio/:domain`) — VC network listing + tabbed detail pages with Jobs and Portfolio Companies tabs
-- **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via 7 ATS public APIs: Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, and Personio. Descriptions stored as HTML for proper formatting.
+- **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via 13 ATS public APIs: Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio, Pinpoint, Rippling, Workday, SAP SuccessFactors, Comeet, and Paylocity. Descriptions stored as HTML for proper formatting.
 - **Scheduled Cron Syncs** — Vercel cron jobs for job refresh, portfolio data sync, and ATS discovery
 - **Portfolio Data Cache** — `VcNetwork` + `PortfolioCompany` tables cache Bridge API portfolio data locally so pages load in <100ms instead of 30-60+ seconds
 - **ATS Cache** — `PortfolioAtsCache` table stores discovered ATS mappings for fast scheduled refreshes
@@ -115,11 +115,11 @@ Route prefix: `/api/v1/` — NOT `/api/current/` (specs reference the old prefix
 
 **Two-phase architecture** separates heavy discovery from lightweight refresh:
 
-1. **ATS Discovery** (weekly cron or manual): Probes portfolio company domains against 7 ATS public APIs (Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio) in parallel → saves mapping to `PortfolioAtsCache` table
+1. **ATS Discovery** (weekly cron or manual): Probes portfolio company domains against 13 ATS public APIs (Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio, Pinpoint, Rippling, Workday, SAP SuccessFactors, Comeet, Paylocity) in parallel → saves mapping to `PortfolioAtsCache` table
 2. **Job Refresh** (every 6 hours cron): Reads cached ATS mappings → fetches jobs directly from known providers → fast, no probing
 3. Each job gets `externalId: "{provider}:{id}"` for dedup (e.g., `greenhouse:127817`, `ashby:cedc8928-...`)
 4. Upsert: existing → update fields; new → create; missing from source → set `status: 'closed'`
-5. Sources: `workable`, `greenhouse`, `lever`, `ashby`, `recruitee`, `smartrecruiters`, `personio`, `manual`
+5. Sources: `workable`, `greenhouse`, `lever`, `ashby`, `recruitee`, `smartrecruiters`, `personio`, `pinpoint`, `rippling`, `workday`, `successfactors`, `comeet`, `paylocity`, `manual`
 6. Manual trigger: `POST /api/sync { "type": "portfolio_jobs" }` (admin/vc only)
 
 ### Scheduled Cron Jobs
@@ -130,7 +130,7 @@ Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by
 |---|---|---|
 | `?type=jobs` | Every 6 hours (offset) | Refreshes jobs from all cached ATS accounts (~120 companies, ~2 min) |
 | `?type=portfolio` | Daily (2 AM) | Syncs VC network details + portfolio companies from Bridge API to local DB |
-| `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains against 7 ATS providers for new accounts (150 per run, reads domains from cached DB) |
+| `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains against 13 ATS providers for new accounts (150 per run, reads domains from cached DB) |
 
 **Environment variables for cron:**
 - `CRON_SECRET` — Bearer token for authenticating Vercel cron requests
@@ -170,7 +170,7 @@ Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by
 bridge-talent-portal/
 ├── CLAUDE.md                              ← YOU ARE HERE
 ├── prisma/
-│   └── schema.prisma                      ← DB schema (8 models)
+│   └── schema.prisma                      ← DB schema (9 models)
 ├── prisma.config.ts                       ← Prisma config with dotenv
 ├── src/
 │   ├── app/
@@ -206,6 +206,7 @@ bridge-talent-portal/
 │   │   │   ├── vc-detail-tabs.tsx         ← Client tab bar for VC detail page (Jobs/Companies)
 │   │   │   └── sync-portfolio-jobs-button.tsx ← Sync trigger button (admin/vc only)
 │   │   └── ui/                            ← shadcn/ui primitives
+│   ├── middleware.ts                       ← Auth middleware (disabled in dev, enable for prod)
 │   ├── lib/
 │   │   ├── auth/session.ts                ← JWT session management
 │   │   ├── bridge-api/
@@ -219,7 +220,7 @@ bridge-talent-portal/
 │   │   └── sync/
 │   │       ├── portfolio-sync.ts          ← Syncs VC details + portfolio companies to local DB
 │   │       ├── job-sync.ts                ← Job sync + cache-based refresh + discovery
-│   │       ├── ats-discovery.ts           ← Unified multi-ATS discovery (probes 7 providers)
+│   │       ├── ats-discovery.ts           ← Unified multi-ATS discovery (probes 13 providers)
 │   │       ├── workable-client.ts         ← Workable public widget API client
 │   │       ├── greenhouse-client.ts       ← Greenhouse public Job Board API client
 │   │       ├── lever-client.ts            ← Lever public Postings API client
@@ -227,14 +228,28 @@ bridge-talent-portal/
 │   │       ├── recruitee-client.ts        ← Recruitee public Careers Site API client
 │   │       ├── smartrecruiters-client.ts  ← SmartRecruiters public Posting API client
 │   │       ├── personio-client.ts         ← Personio public XML job feed client
+│   │       ├── pinpoint-client.ts         ← Pinpoint public Job Board JSON API client
+│   │       ├── rippling-client.ts         ← Rippling public ATS Board API client
+│   │       ├── workday-client.ts          ← Workday public career site API client (Tier 2, compound slug)
+│   │       ├── successfactors-client.ts   ← SAP SuccessFactors public XML job feed client (Tier 2)
+│   │       ├── comeet-client.ts           ← Comeet public Careers API client (Tier 2, compound slug)
+│   │       ├── paylocity-client.ts        ← Paylocity public Job Feed API client (Tier 2)
+│   │       ├── fallback-scraper.ts        ← Fallback scraper for unknown ATS careers pages (cheerio + playwright)
 │   │       └── ats-config.ts              ← Portfolio company → ATS provider mapping
 │   └── types/prisma.ts                    ← Re-exports Prisma models
-├── bridge-claude-skills/                  ← Bridge Design System skills (authoritative)
+├── bridge-claude-skills/                  ← Bridge Design System skills (authoritative, 9 skills)
+│   ├── accessibility-specialist/SKILL.md  ← Accessibility audit patterns
+│   ├── backend-developer/SKILL.md         ← Backend patterns + references/
 │   ├── bridge-design-system/SKILL.md      ← Design tokens, colors, typography, spacing
+│   ├── code-quality/SKILL.md              ← Code quality standards
+│   ├── code-reviewer/SKILL.md             ← Code review checklist
 │   ├── frontend-developer/SKILL.md        ← Implementation patterns + references/
-│   ├── ui-designer/SKILL.md               ← Visual design principles
-│   ├── ux-consultant/SKILL.md             ← UX audit heuristics
+│   ├── ui-designer/SKILL.md               ← Visual design principles + references/
+│   ├── ux-consultant/SKILL.md             ← UX audit heuristics + references/
 │   └── ux-copywriter/SKILL.md             ← Copy patterns, voice/tone
+├── scripts/                               ← Utility scripts
+│   ├── run-discovery.mjs                  ← Sequential ATS discovery for batch probing
+│   └── run-discovery-parallel.mjs         ← Parallel ATS discovery (faster)
 ├── specs/                                 ← Product spec docs
 ├── technical/                             ← Architecture & API docs
 ├── design/                                ← Design spec docs
@@ -259,7 +274,7 @@ bridge-talent-portal/
 ```
 
 ### Key Models
-- **Job** — Jobs from multi-ATS sync + manual posting. Key fields: title, description, companyDomain, source (`manual` | `workable` | `greenhouse` | `lever` | `ashby`), externalId (unique, for dedup), status, applyUrl, workType, employmentType, experienceLevel, skillsRequired
+- **Job** — Jobs from multi-ATS sync + manual posting. Key fields: title, description, companyDomain, source (`manual` | `workable` | `greenhouse` | `lever` | `ashby` | `recruitee` | `smartrecruiters` | `personio` | `pinpoint` | `rippling` | `workday` | `successfactors` | `comeet` | `paylocity`), externalId (unique, for dedup), status, applyUrl, workType, employmentType, experienceLevel, skillsRequired
 - **Application** — Job applications. Uses `bridgeUserId` (Bridge user UUID) to track applicants. Composite unique on `[jobId, bridgeUserId]`.
 - **VcNetwork** — Caches VC/network details from Bridge API `GET /api/v1/tags/:domain/details`. Fields: domain (unique), title, description, location, isVc, founders, industries, industriesInvestIn (JSON). Synced daily by `?type=portfolio` cron.
 - **PortfolioCompany** — Caches portfolio company data from Bridge API v4 `network_portfolios`. Fields: domain, vcDomain (FK to VcNetwork), description, industries, status, funded, investDate. Composite unique on `[domain, vcDomain]`. ~5,976 rows across 3 VCs.
@@ -282,6 +297,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 NODE_ENV=development
 CRON_SECRET=<random-string-for-cron-auth>
 PORTFOLIO_VC_DOMAINS=brdg.app,techstars.com,angelinvest.ventures,orangedao.xyz
+ENABLE_PLAYWRIGHT=false
+# PLAYWRIGHT_WS_ENDPOINT=wss://...  # Optional: remote browser service URL for fallback scraper
 
 # .env (Prisma CLI only — NEVER committed)
 DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1
@@ -298,7 +315,7 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Job sync:** `POST /api/sync {"type":"jobs"}` — fetches jobs from cached ATS accounts
 - **Portfolio sync:** `POST /api/sync {"type":"portfolio"}` — syncs VC details + portfolio companies to local DB
 - **Dev login:** In browser console: `fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ useApiKey:true, apiKey:'<BRIDGE_API_KEY>' }) })`
-- **Next.js version:** 16.x (Turbopack). `middleware.ts` convention is deprecated.
+- **Next.js version:** 16.x (Turbopack). `src/middleware.ts` exists but auth is disabled for local development — re-enable for production.
 
 ## Codebase Gotchas
 
@@ -311,15 +328,17 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Bridge API `Accept` header** — All requests to `api.brdg.app` MUST include `Accept: application/json`. Without it, Heroku returns HTML 404. This is handled in `src/lib/bridge-api/client.ts`.
 - **Response wrapping** — `/api/v1/users/*` responses wrap in `{ user: {...} }`. `/api/v1/contacts/:id` wraps in `{ contact: {...} }`. Both are unwrapped by helper functions.
 - **Broken endpoints** — `search/bridge_members` (500), `search/embeddings` (500), `users/:id` for non-self (403), `contacts/bridge_members_details/since/:time` (404), `user_networks` (404). These are commented out in the codebase with `⚠️ BROKEN` warnings.
-- **Job `source` field** — `'manual'` (UI-posted) or `'workable'` | `'greenhouse'` | `'lever'` | `'ashby'` | `'recruitee'` | `'smartrecruiters'` | `'personio'` (synced from ATS). The `JobPostForm` always sets `source: 'manual'`.
-- **Job `externalId` field** — Unique, format `{provider}:{id}` (e.g., `greenhouse:127817`, `ashby:cedc8928-...`, `recruitee:12345`, `smartrecruiters:abc123`, `personio:99`). Used for dedup during sync. `null` for manually posted jobs.
+- **Job `source` field** — `'manual'` (UI-posted) or one of 13 ATS sources: `'workable'` | `'greenhouse'` | `'lever'` | `'ashby'` | `'recruitee'` | `'smartrecruiters'` | `'personio'` | `'pinpoint'` | `'rippling'` | `'workday'` | `'successfactors'` | `'comeet'` | `'paylocity'` (synced from ATS). The `JobPostForm` always sets `source: 'manual'`.
+- **Job `externalId` field** — Unique, format `{provider}:{id}` (e.g., `greenhouse:127817`, `ashby:cedc8928-...`, `recruitee:12345`, `smartrecruiters:abc123`, `personio:99`, `pinpoint:456`, `rippling:uuid`, `workday:REQ-123`, `comeet:uid`, `paylocity:reqId`). Used for dedup during sync. `null` for manually posted jobs.
 - **Job descriptions are HTML** — ATS sources (Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio) store HTML descriptions. The job detail page auto-detects HTML via regex and renders with `dangerouslySetInnerHTML`. Manual/Workable jobs render as plain text with `whitespace-pre-wrap`. Job card previews always strip HTML.
 - **Company favicons** — Job cards, VC cards, and portfolio company cards all use Google's favicon API: `https://www.google.com/s2/favicons?domain={domain}&sz=64`. CSS initials fallback rendered behind the image (absolute span + `z-10` on img). Server-component compatible — no `onError` handler, no `useState`, no `'use client'`.
 - **VC detail page tabs** — `/portfolio/:domain` uses URL-param tabs (`?tab=jobs|companies`). The `VcDetailTabs` client component renders shadcn Tabs (line variant) with `<Link>` navigation. Job count is fetched; only the active tab's paginated data is loaded. Default tab is `jobs`.
 - **Portfolio data is cached in DB** — `VcNetwork` + `PortfolioCompany` tables. Portfolio and jobs pages read from DB (fast). Bridge API `fetchPortfolioCompanies()` is only used by the sync service, NOT by page-load code paths. The `?type=portfolio` cron refreshes daily. Manual trigger: `POST /api/sync {"type":"portfolio"}`.
 - **Workable public API** — `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` — no auth needed. Returns `{ jobs: [...], total: N }`. Only provides title, department, location, shortcode, URL — no full descriptions.
-- **Portfolio ATS config** — Static mapping in `src/lib/sync/ats-config.ts`. Currently only Quantive uses Workable; other 7 companies are `manual_only`. Add new entries when portfolio companies adopt ATS with public APIs.
-- **Bridge Design System skills** — `bridge-claude-skills/` folder contains authoritative skill files: `bridge-design-system/SKILL.md` (tokens, colors, typography), `frontend-developer/SKILL.md` (implementation patterns), `ui-designer/SKILL.md`, `ux-consultant/SKILL.md`, `ux-copywriter/SKILL.md`. Always follow these for UI changes.
+- **Portfolio ATS config** — Static mapping in `src/lib/sync/ats-config.ts`. 27 total entries: 18 with active ATS providers (Workable: 8, Personio: 5, Ashby: 3, Lever: 1, Greenhouse: 1) + 9 `manual_only`. Provider union supports 13 ATS types + `manual_only`. Add new entries when portfolio companies adopt ATS with public APIs.
+- **Tier 2 ATS providers (undocumented)** — Workday, SAP SuccessFactors, Comeet, and Paylocity use undocumented but functional public endpoints. These could break without notice if providers change their APIs. Workday uses compound slugs (`company|wd#|siteName`), Comeet uses compound slugs (`uid|token`), Paylocity uses GUIDs. SAP SuccessFactors uses RSS XML feeds. Discovery for Comeet/Paylocity requires fetching and parsing the company's careers page HTML to extract embedded identifiers.
+- **Lever EU API support** — `lever-client.ts` probes both US (`api.lever.co`) and EU (`api.eu.lever.co`) endpoints. Falls back to EU if US returns empty results. Some companies are only on the EU API.
+- **Bridge Design System skills** — `bridge-claude-skills/` folder contains 9 authoritative skill files: `accessibility-specialist`, `backend-developer`, `bridge-design-system` (tokens, colors, typography), `code-quality`, `code-reviewer`, `frontend-developer` (implementation patterns), `ui-designer`, `ux-consultant`, `ux-copywriter`. Always follow these for UI changes.
 - **Badge system** — `src/components/ui/badge.tsx` has 6 Bridge variants: `default` (Slate), `info` (Sky/Royal), `success` (Kelly), `warning` (Honey), `error` (Ruby), `purple`. Legacy variants (`secondary`, `outline`, `destructive`) are kept for backward compat.
 - **Bridge page header pattern** — ALL pages use the same header: 36px (`w-9 h-9`) Royal `#0038FF` `rounded-[12px]` icon container + 18px Bold `#0D1531` title inline + 14px `#81879C` subtitle below. Icons per page: Jobs→`Briefcase`, Job Post→`PenSquare`, Portfolio→`Building2`, Profile→`User`. Defined in Figma (node `4892:2527`).
 - **Bridge color tokens** — All pages use explicit Bridge hex tokens instead of generic Tailwind/shadcn colors. Key: `#0D1531` (Charcoal text), `#3D445A` (Charcoal 80 secondary text), `#676C7E` (Charcoal 70 body text), `#81879C` (Slate 100 muted text), `#0D7C47` (green for salary/job count), `#D93025` (red for errors), `#0038FF` (Royal primary). NEVER use `text-green-600`, `text-blue-700`, `text-red-600` etc.
@@ -333,6 +352,7 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Section titles in detail pages** — Use `h2` with `text-[16px] font-semibold text-[#0D1531] mb-4` inside `CardContent` (NOT `CardHeader`/`CardTitle`).
 - **Shared Pagination component** — `src/components/ui/pagination.tsx` is a `'use client'` component used on paginated pages (jobs, portfolio). Figma design (node `4894:2636`): "Page X of Y" text + prev/next chevron buttons (pill, Slate 60 border) + rows-per-page dropdown (10/20/50). Props: `page`, `totalPages`, `perPage`, `basePath`, `extraParams`. Does NOT accept functions as props (Server→Client serialization boundary). All pages support `?per_page=` URL param.
 - **User profile popup** — `src/components/layout/user-profile-popup.tsx` is a rich Radix DropdownMenu showing signed-in identity, access status card (Admin/VC/Company/Talent with icons + colors), connected accounts (work/personal email sections with Google favicons), and Bridge account link. Lazy-fetches `/api/auth/me` on open with 5-minute cache. Uses extensive defensive type guards for Bridge API data.
+- **Fallback scraper** — `src/lib/sync/fallback-scraper.ts` handles careers pages without a known ATS. Exports `scrapeWithFallback(careersUrl, companyName): Promise<RawJob[]>`. 4-step strategy: (1) static HTML fetch + cheerio (JSON-LD, scored DOM elements, link extraction), (2) Playwright network interception for JSON APIs, (3) Playwright DOM extraction on rendered HTML, (4) graceful empty return. Steps 2-3 gated behind `ENABLE_PLAYWRIGHT=true` env var. Uses `playwright-core` (no bundled browser) — connects to `PLAYWRIGHT_WS_ENDPOINT` or local Chromium. Returns `RawJob` (title, location, department, url, rawHtml) — NOT `MappedJobData`. The calling orchestrator handles normalization. Never throws — always returns `[]` on failure.
 
 ---
 
@@ -357,7 +377,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Modify ATS discovery | `src/lib/sync/ats-discovery.ts` |
 | Modify cron schedules | `vercel.json` + `src/app/api/cron/route.ts` |
 | Add ATS company mapping | `src/lib/sync/ats-config.ts` |
-| Modify ATS clients | `src/lib/sync/workable-client.ts`, `greenhouse-client.ts`, `lever-client.ts`, `ashby-client.ts`, `recruitee-client.ts`, `smartrecruiters-client.ts`, `personio-client.ts` |
+| Modify ATS clients (Tier 1) | `src/lib/sync/workable-client.ts`, `greenhouse-client.ts`, `lever-client.ts`, `ashby-client.ts`, `recruitee-client.ts`, `smartrecruiters-client.ts`, `personio-client.ts`, `pinpoint-client.ts`, `rippling-client.ts` |
+| Modify ATS clients (Tier 2) | `src/lib/sync/workday-client.ts`, `successfactors-client.ts`, `comeet-client.ts`, `paylocity-client.ts` |
+| Modify fallback scraper | `src/lib/sync/fallback-scraper.ts` |
 | Add Bridge API call | `src/lib/bridge-api/users.ts` or `search.ts` |
 | Add Bridge API type | `src/lib/bridge-api/types.ts` |
 | Change DB schema | `prisma/schema.prisma` → push → generate |

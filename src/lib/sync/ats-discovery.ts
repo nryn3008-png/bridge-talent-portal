@@ -1,5 +1,6 @@
 // Unified ATS discovery — probes Workable, Greenhouse, Lever, Ashby, Recruitee,
-// SmartRecruiters, and Personio for a given company domain and returns the first
+// SmartRecruiters, Personio, Pinpoint, Rippling, Workday, SAP SuccessFactors,
+// Comeet, and Paylocity for a given company domain and returns the first
 // provider with active jobs.
 
 import { tryWorkableDiscovery, mapWorkableJobToJobData, type WorkableJob } from './workable-client'
@@ -9,8 +10,14 @@ import { tryAshbyDiscovery, mapAshbyJobToJobData, type AshbyJob } from './ashby-
 import { tryRecruiteeDiscovery, mapRecruiteeJobToJobData, type RecruiteeOffer } from './recruitee-client'
 import { trySmartRecruitersDiscovery, mapSmartRecruitersJobToJobData, type SmartRecruitersJob } from './smartrecruiters-client'
 import { tryPersonioDiscovery, mapPersonioJobToJobData, type PersonioJob } from './personio-client'
+import { tryPinpointDiscovery, mapPinpointJobToJobData, type PinpointJob } from './pinpoint-client'
+import { tryRipplingDiscovery, mapRipplingJobToJobData, type RipplingJob } from './rippling-client'
+import { tryWorkdayDiscovery, mapWorkdayJobToJobData, type WorkdayJob } from './workday-client'
+import { trySuccessFactorsDiscovery, mapSuccessFactorsJobToJobData, type SuccessFactorsJob } from './successfactors-client'
+import { tryComeetDiscovery, mapComeetJobToJobData, type ComeetPosition } from './comeet-client'
+import { tryPaylocityDiscovery, mapPaylocityJobToJobData, type PaylocityJob } from './paylocity-client'
 
-export type AtsProvider = 'workable' | 'greenhouse' | 'lever' | 'ashby' | 'recruitee' | 'smartrecruiters' | 'personio'
+export type AtsProvider = 'workable' | 'greenhouse' | 'lever' | 'ashby' | 'recruitee' | 'smartrecruiters' | 'personio' | 'pinpoint' | 'rippling' | 'workday' | 'successfactors' | 'comeet' | 'paylocity'
 
 /** Common shape for all ATS-mapped job data, ready for DB upsert */
 export interface MappedJobData {
@@ -41,12 +48,15 @@ export interface DiscoveryResult {
 }
 
 /**
- * Discover which ATS a company uses by probing all 7 providers in parallel.
+ * Discover which ATS a company uses by probing all 13 providers in parallel.
  * Returns the first provider that returns jobs, or null if none found.
  */
 export async function discoverAtsJobs(companyDomain: string): Promise<DiscoveryResult | null> {
-  // Probe all 7 providers in parallel — first one with jobs wins
-  const [workable, greenhouse, lever, ashby, recruitee, smartrecruiters, personio] = await Promise.allSettled([
+  // Probe all 13 providers in parallel — first one with jobs wins
+  const [
+    workable, greenhouse, lever, ashby, recruitee, smartrecruiters, personio,
+    pinpoint, rippling, workday, successfactors, comeet, paylocity,
+  ] = await Promise.allSettled([
     tryWorkableDiscovery(companyDomain),
     tryGreenhouseDiscovery(companyDomain),
     tryLeverDiscovery(companyDomain),
@@ -54,6 +64,12 @@ export async function discoverAtsJobs(companyDomain: string): Promise<DiscoveryR
     tryRecruiteeDiscovery(companyDomain),
     trySmartRecruitersDiscovery(companyDomain),
     tryPersonioDiscovery(companyDomain),
+    tryPinpointDiscovery(companyDomain),
+    tryRipplingDiscovery(companyDomain),
+    tryWorkdayDiscovery(companyDomain),
+    trySuccessFactorsDiscovery(companyDomain),
+    tryComeetDiscovery(companyDomain),
+    tryPaylocityDiscovery(companyDomain),
   ])
 
   // Check Workable
@@ -130,6 +146,72 @@ export async function discoverAtsJobs(companyDomain: string): Promise<DiscoveryR
       slug,
       jobCount: jobs.length,
       mappedJobs: jobs.map((j: PersonioJob) => mapPersonioJobToJobData(j, companyDomain)),
+    }
+  }
+
+  // Check Pinpoint
+  if (pinpoint.status === 'fulfilled' && pinpoint.value) {
+    const { slug, jobs } = pinpoint.value
+    return {
+      provider: 'pinpoint',
+      slug,
+      jobCount: jobs.length,
+      mappedJobs: jobs.map((j: PinpointJob) => mapPinpointJobToJobData(j, companyDomain)),
+    }
+  }
+
+  // Check Rippling
+  if (rippling.status === 'fulfilled' && rippling.value) {
+    const { slug, jobs } = rippling.value
+    return {
+      provider: 'rippling',
+      slug,
+      jobCount: jobs.length,
+      mappedJobs: jobs.map((j: RipplingJob) => mapRipplingJobToJobData(j, companyDomain)),
+    }
+  }
+
+  // Check Workday
+  if (workday.status === 'fulfilled' && workday.value) {
+    const { slug, jobs } = workday.value
+    return {
+      provider: 'workday',
+      slug,
+      jobCount: jobs.length,
+      mappedJobs: jobs.map((j: WorkdayJob) => mapWorkdayJobToJobData(j, companyDomain, slug)),
+    }
+  }
+
+  // Check SAP SuccessFactors
+  if (successfactors.status === 'fulfilled' && successfactors.value) {
+    const { slug, jobs } = successfactors.value
+    return {
+      provider: 'successfactors',
+      slug,
+      jobCount: jobs.length,
+      mappedJobs: jobs.map((j: SuccessFactorsJob) => mapSuccessFactorsJobToJobData(j, companyDomain)),
+    }
+  }
+
+  // Check Comeet
+  if (comeet.status === 'fulfilled' && comeet.value) {
+    const { slug, jobs } = comeet.value
+    return {
+      provider: 'comeet',
+      slug,
+      jobCount: jobs.length,
+      mappedJobs: jobs.map((j: ComeetPosition) => mapComeetJobToJobData(j, companyDomain)),
+    }
+  }
+
+  // Check Paylocity
+  if (paylocity.status === 'fulfilled' && paylocity.value) {
+    const { slug, jobs } = paylocity.value
+    return {
+      provider: 'paylocity',
+      slug,
+      jobCount: jobs.length,
+      mappedJobs: jobs.map((j: PaylocityJob) => mapPaylocityJobToJobData(j, companyDomain)),
     }
   }
 
