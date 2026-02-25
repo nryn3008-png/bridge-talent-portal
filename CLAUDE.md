@@ -11,8 +11,8 @@
 3. **Never create seed files with fake users/jobs.**
 4. **If you need test data, fetch it from the real Bridge API** using the development API key.
 5. **Environment variables are in `.env.local`** — never commit this file. Always read from `process.env`.
-6. **Bridge API + public ATS APIs are the data sources.** We integrate Workable, Greenhouse, Lever, and Ashby public job board APIs (all free, no auth). Do NOT use any third-party data providers beyond these.
-7. **No external API keys needed** — only BRIDGE_API_KEY. All ATS APIs (Workable, Greenhouse, Lever, Ashby) are public/unauthenticated.
+6. **Bridge API + public ATS APIs are the data sources.** We integrate 7 ATS public job board APIs: Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, and Personio (all free, no auth). Do NOT use any third-party data providers beyond these.
+7. **No external API keys needed** — only BRIDGE_API_KEY. All ATS APIs (Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio) are public/unauthenticated.
 
 ---
 
@@ -25,7 +25,7 @@ The app has two main features: a **Job Board** (sourced from portfolio company A
 - **Job Detail Pages** (`/jobs/:id`) — Full job details with HTML rendering for ATS descriptions + apply button
 - **Job Posting** (`/jobs/post`) — Manual job posting form (company/vc/admin only)
 - **Portfolio Pages** (`/portfolio`, `/portfolio/:domain`) — VC network listing + tabbed detail pages with Jobs and Portfolio Companies tabs
-- **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via Workable, Greenhouse, Lever, and Ashby public APIs. Descriptions stored as HTML for proper formatting.
+- **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via 7 ATS public APIs: Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, and Personio. Descriptions stored as HTML for proper formatting.
 - **Scheduled Cron Syncs** — Vercel cron jobs for job refresh, portfolio data sync, and ATS discovery
 - **Portfolio Data Cache** — `VcNetwork` + `PortfolioCompany` tables cache Bridge API portfolio data locally so pages load in <100ms instead of 30-60+ seconds
 - **ATS Cache** — `PortfolioAtsCache` table stores discovered ATS mappings for fast scheduled refreshes
@@ -115,11 +115,11 @@ Route prefix: `/api/v1/` — NOT `/api/current/` (specs reference the old prefix
 
 **Two-phase architecture** separates heavy discovery from lightweight refresh:
 
-1. **ATS Discovery** (weekly cron or manual): Probes portfolio company domains against 4 ATS public APIs (Workable, Greenhouse, Lever, Ashby) in parallel → saves mapping to `PortfolioAtsCache` table
+1. **ATS Discovery** (weekly cron or manual): Probes portfolio company domains against 7 ATS public APIs (Workable, Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio) in parallel → saves mapping to `PortfolioAtsCache` table
 2. **Job Refresh** (every 6 hours cron): Reads cached ATS mappings → fetches jobs directly from known providers → fast, no probing
 3. Each job gets `externalId: "{provider}:{id}"` for dedup (e.g., `greenhouse:127817`, `ashby:cedc8928-...`)
 4. Upsert: existing → update fields; new → create; missing from source → set `status: 'closed'`
-5. Sources: `workable`, `greenhouse`, `lever`, `ashby`, `manual`
+5. Sources: `workable`, `greenhouse`, `lever`, `ashby`, `recruitee`, `smartrecruiters`, `personio`, `manual`
 6. Manual trigger: `POST /api/sync { "type": "portfolio_jobs" }` (admin/vc only)
 
 ### Scheduled Cron Jobs
@@ -130,7 +130,7 @@ Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by
 |---|---|---|
 | `?type=jobs` | Every 6 hours (offset) | Refreshes jobs from all cached ATS accounts (~120 companies, ~2 min) |
 | `?type=portfolio` | Daily (2 AM) | Syncs VC network details + portfolio companies from Bridge API to local DB |
-| `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains for new ATS accounts (150 per run, reads domains from cached DB) |
+| `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains against 7 ATS providers for new accounts (150 per run, reads domains from cached DB) |
 
 **Environment variables for cron:**
 - `CRON_SECRET` — Bearer token for authenticating Vercel cron requests
@@ -219,11 +219,14 @@ bridge-talent-portal/
 │   │   └── sync/
 │   │       ├── portfolio-sync.ts          ← Syncs VC details + portfolio companies to local DB
 │   │       ├── job-sync.ts                ← Job sync + cache-based refresh + discovery
-│   │       ├── ats-discovery.ts           ← Unified multi-ATS discovery (probes 4 providers)
+│   │       ├── ats-discovery.ts           ← Unified multi-ATS discovery (probes 7 providers)
 │   │       ├── workable-client.ts         ← Workable public widget API client
 │   │       ├── greenhouse-client.ts       ← Greenhouse public Job Board API client
 │   │       ├── lever-client.ts            ← Lever public Postings API client
 │   │       ├── ashby-client.ts            ← Ashby public Job Board API client
+│   │       ├── recruitee-client.ts        ← Recruitee public Careers Site API client
+│   │       ├── smartrecruiters-client.ts  ← SmartRecruiters public Posting API client
+│   │       ├── personio-client.ts         ← Personio public XML job feed client
 │   │       └── ats-config.ts              ← Portfolio company → ATS provider mapping
 │   └── types/prisma.ts                    ← Re-exports Prisma models
 ├── bridge-claude-skills/                  ← Bridge Design System skills (authoritative)
@@ -308,9 +311,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Bridge API `Accept` header** — All requests to `api.brdg.app` MUST include `Accept: application/json`. Without it, Heroku returns HTML 404. This is handled in `src/lib/bridge-api/client.ts`.
 - **Response wrapping** — `/api/v1/users/*` responses wrap in `{ user: {...} }`. `/api/v1/contacts/:id` wraps in `{ contact: {...} }`. Both are unwrapped by helper functions.
 - **Broken endpoints** — `search/bridge_members` (500), `search/embeddings` (500), `users/:id` for non-self (403), `contacts/bridge_members_details/since/:time` (404), `user_networks` (404). These are commented out in the codebase with `⚠️ BROKEN` warnings.
-- **Job `source` field** — `'manual'` (UI-posted) or `'workable'` | `'greenhouse'` | `'lever'` | `'ashby'` (synced from ATS). The `JobPostForm` always sets `source: 'manual'`.
-- **Job `externalId` field** — Unique, format `{provider}:{id}` (e.g., `greenhouse:127817`, `ashby:cedc8928-...`). Used for dedup during sync. `null` for manually posted jobs.
-- **Job descriptions are HTML** — ATS sources (Greenhouse, Lever, Ashby) store HTML descriptions. The job detail page auto-detects HTML via regex and renders with `dangerouslySetInnerHTML`. Manual/Workable jobs render as plain text with `whitespace-pre-wrap`. Job card previews always strip HTML.
+- **Job `source` field** — `'manual'` (UI-posted) or `'workable'` | `'greenhouse'` | `'lever'` | `'ashby'` | `'recruitee'` | `'smartrecruiters'` | `'personio'` (synced from ATS). The `JobPostForm` always sets `source: 'manual'`.
+- **Job `externalId` field** — Unique, format `{provider}:{id}` (e.g., `greenhouse:127817`, `ashby:cedc8928-...`, `recruitee:12345`, `smartrecruiters:abc123`, `personio:99`). Used for dedup during sync. `null` for manually posted jobs.
+- **Job descriptions are HTML** — ATS sources (Greenhouse, Lever, Ashby, Recruitee, SmartRecruiters, Personio) store HTML descriptions. The job detail page auto-detects HTML via regex and renders with `dangerouslySetInnerHTML`. Manual/Workable jobs render as plain text with `whitespace-pre-wrap`. Job card previews always strip HTML.
 - **Company favicons** — Job cards, VC cards, and portfolio company cards all use Google's favicon API: `https://www.google.com/s2/favicons?domain={domain}&sz=64`. CSS initials fallback rendered behind the image (absolute span + `z-10` on img). Server-component compatible — no `onError` handler, no `useState`, no `'use client'`.
 - **VC detail page tabs** — `/portfolio/:domain` uses URL-param tabs (`?tab=jobs|companies`). The `VcDetailTabs` client component renders shadcn Tabs (line variant) with `<Link>` navigation. Job count is fetched; only the active tab's paginated data is loaded. Default tab is `jobs`.
 - **Portfolio data is cached in DB** — `VcNetwork` + `PortfolioCompany` tables. Portfolio and jobs pages read from DB (fast). Bridge API `fetchPortfolioCompanies()` is only used by the sync service, NOT by page-load code paths. The `?type=portfolio` cron refreshes daily. Manual trigger: `POST /api/sync {"type":"portfolio"}`.
@@ -354,7 +357,7 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Modify ATS discovery | `src/lib/sync/ats-discovery.ts` |
 | Modify cron schedules | `vercel.json` + `src/app/api/cron/route.ts` |
 | Add ATS company mapping | `src/lib/sync/ats-config.ts` |
-| Modify ATS clients | `src/lib/sync/workable-client.ts`, `greenhouse-client.ts`, `lever-client.ts`, `ashby-client.ts` |
+| Modify ATS clients | `src/lib/sync/workable-client.ts`, `greenhouse-client.ts`, `lever-client.ts`, `ashby-client.ts`, `recruitee-client.ts`, `smartrecruiters-client.ts`, `personio-client.ts` |
 | Add Bridge API call | `src/lib/bridge-api/users.ts` or `search.ts` |
 | Add Bridge API type | `src/lib/bridge-api/types.ts` |
 | Change DB schema | `prisma/schema.prisma` → push → generate |

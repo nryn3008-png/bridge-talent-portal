@@ -1,9 +1,12 @@
 import { prisma } from '@/lib/db/prisma'
-import { getWorkableConfigs } from './ats-config'
+import { getStaticAtsConfigs } from './ats-config'
 import { fetchWorkableJobs, mapWorkableJobToJobData } from './workable-client'
 import { fetchGreenhouseJobs, mapGreenhouseJobToJobData } from './greenhouse-client'
 import { fetchLeverJobs, mapLeverJobToJobData } from './lever-client'
 import { fetchAshbyJobs, mapAshbyJobToJobData } from './ashby-client'
+import { fetchRecruiteeJobs, mapRecruiteeJobToJobData } from './recruitee-client'
+import { fetchSmartRecruitersJobs, mapSmartRecruitersJobToJobData } from './smartrecruiters-client'
+import { fetchPersonioJobs, mapPersonioJobToJobData } from './personio-client'
 import { discoverAtsJobs, type AtsProvider, type MappedJobData } from './ats-discovery'
 
 interface JobSyncResult {
@@ -76,22 +79,22 @@ async function syncAtsJobsForCompany(
 
 /**
  * Sync jobs from statically configured ATS companies (ats-config.ts).
+ * Handles all providers (Workable, Personio, etc.) via the generic fetchJobsFromProvider.
  */
 export async function syncJobsFromAts(): Promise<JobSyncResult> {
   if (!prisma) throw new Error('Database not available — check DATABASE_URL')
 
   const result: JobSyncResult = { created: 0, updated: 0, deactivated: 0, discovered: 0, errors: 0, details: [] }
-  const workableConfigs = getWorkableConfigs()
+  const staticConfigs = getStaticAtsConfigs()
 
-  for (const config of workableConfigs) {
-    const companyResult = { company: config.companyDomain, created: 0, updated: 0, deactivated: 0, error: undefined as string | undefined }
+  for (const config of staticConfigs) {
+    const companyResult = { company: config.companyDomain, provider: config.provider, created: 0, updated: 0, deactivated: 0, error: undefined as string | undefined }
 
     try {
-      const workableJobs = await fetchWorkableJobs(config.accountSlug!)
-      console.log(`[job-sync] ${config.companyName}: ${workableJobs.length} jobs from Workable`)
+      const mappedJobs = await fetchJobsFromProvider(config.provider as AtsProvider, config.accountSlug!, config.companyDomain)
+      console.log(`[job-sync] ${config.companyName}: ${mappedJobs.length} jobs from ${config.provider}`)
 
-      const mappedJobs: MappedJobData[] = workableJobs.map((j) => mapWorkableJobToJobData(j, config.companyDomain))
-      const stats = await syncAtsJobsForCompany(config.companyDomain, 'workable', mappedJobs)
+      const stats = await syncAtsJobsForCompany(config.companyDomain, config.provider as AtsProvider, mappedJobs)
       companyResult.created = stats.created
       companyResult.updated = stats.updated
       companyResult.deactivated = stats.deactivated
@@ -139,10 +142,10 @@ export async function syncJobsFromPortfolioCompanies(
   const result: JobSyncResult = { created: 0, updated: 0, deactivated: 0, discovered: 0, errors: 0, details: [] }
 
   // Skip domains already in static config to avoid duplicate syncing
-  const staticDomains = new Set(getWorkableConfigs().map((c) => c.companyDomain))
+  const staticDomains = new Set(getStaticAtsConfigs().map((c) => c.companyDomain))
   const domainsToCheck = companyDomains.filter((d) => !staticDomains.has(d))
 
-  console.log(`[portfolio-job-sync] Checking ${domainsToCheck.length} portfolio companies across Workable, Greenhouse, Lever, Ashby...`)
+  console.log(`[portfolio-job-sync] Checking ${domainsToCheck.length} portfolio companies across 7 ATS providers...`)
 
   // Process in batches of 3 (each domain probes 4 APIs, so 3×4 = 12 concurrent requests)
   const batchSize = 3
@@ -316,7 +319,7 @@ export async function discoverNewAtsAccounts(
     (await db.portfolioAtsCache.findMany({ select: { companyDomain: true } }))
       .map((c) => c.companyDomain),
   )
-  const staticDomains = new Set(getWorkableConfigs().map((c) => c.companyDomain))
+  const staticDomains = new Set(getStaticAtsConfigs().map((c) => c.companyDomain))
 
   // Filter to only unchecked domains
   const uncheckedDomains = companyDomains.filter(
@@ -427,6 +430,18 @@ async function fetchJobsFromProvider(
     case 'ashby': {
       const jobs = await fetchAshbyJobs(slug)
       return jobs.map((j) => mapAshbyJobToJobData(j, companyDomain))
+    }
+    case 'recruitee': {
+      const jobs = await fetchRecruiteeJobs(slug)
+      return jobs.map((j) => mapRecruiteeJobToJobData(j, companyDomain))
+    }
+    case 'smartrecruiters': {
+      const jobs = await fetchSmartRecruitersJobs(slug)
+      return jobs.map((j) => mapSmartRecruitersJobToJobData(j, companyDomain))
+    }
+    case 'personio': {
+      const jobs = await fetchPersonioJobs(slug)
+      return jobs.map((j) => mapPersonioJobToJobData(j, companyDomain))
     }
     default:
       throw new Error(`Unknown ATS provider: ${provider}`)
