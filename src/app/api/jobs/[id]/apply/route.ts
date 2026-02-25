@@ -24,20 +24,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Job not found or no longer active' }, { status: 404 })
   }
 
-  // Get or create talent profile
-  let talentProfile = await prisma.talentProfile.findUnique({
-    where: { bridgeUserId: session.userId },
-  })
-
-  if (!talentProfile) {
-    talentProfile = await prisma.talentProfile.create({
-      data: { bridgeUserId: session.userId },
-    })
-  }
-
   // Check if already applied
   const existing = await prisma.application.findUnique({
-    where: { jobId_talentId: { jobId, talentId: talentProfile.id } },
+    where: { jobId_bridgeUserId: { jobId, bridgeUserId: session.userId } },
   })
 
   if (existing) {
@@ -48,7 +37,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     prisma.application.create({
       data: {
         jobId,
-        talentId: talentProfile.id,
         bridgeUserId: session.userId,
         coverNote: coverNote || null,
         resumeUrl: resumeUrl || null,

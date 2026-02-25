@@ -8,7 +8,7 @@
 
 1. **NEVER use mock data, placeholder data, fake data, or hardcoded test data.** Always use real Bridge API responses. If the API is unreachable, throw an error — do not fall back to mock data.
 2. **All API calls must use the real BRIDGE_API_KEY** from `.env.local`. Never hardcode API keys.
-3. **Never create seed files with fake users/jobs.** The talent directory is populated exclusively from Bridge API data via bulk sync.
+3. **Never create seed files with fake users/jobs.**
 4. **If you need test data, fetch it from the real Bridge API** using the development API key.
 5. **Environment variables are in `.env.local`** — never commit this file. Always read from `process.env`.
 6. **Bridge API + public ATS APIs are the data sources.** We integrate Workable, Greenhouse, Lever, and Ashby public job board APIs (all free, no auth). Do NOT use any third-party data providers beyond these.
@@ -18,31 +18,26 @@
 
 ## Current State (MVP)
 
-The app has two main features: a **Talent Directory** (21,720+ Bridge members) and a **Job Board** (sourced from portfolio company ATS systems + manual posting).
+The app has two main features: a **Job Board** (sourced from portfolio company ATS systems + manual posting) and a **Portfolio Directory** (VC networks + portfolio companies).
 
 ### What's Built
-- **Talent Directory** (`/talent`) — Searchable, paginated directory of all Bridge members with role category filters
-- **Profile Detail Pages** (`/talent/:id`) — Individual member profiles
 - **Job Board** (`/jobs`) — Searchable, filterable job listings with company favicons, VC network filter, and multi-ATS sources
 - **Job Detail Pages** (`/jobs/:id`) — Full job details with HTML rendering for ATS descriptions + apply button
 - **Job Posting** (`/jobs/post`) — Manual job posting form (company/vc/admin only)
-- **Portfolio Pages** (`/portfolio`, `/portfolio/:domain`) — VC network listing + tabbed detail pages with Jobs, Portfolio Companies, and Talent Network tabs
+- **Portfolio Pages** (`/portfolio`, `/portfolio/:domain`) — VC network listing + tabbed detail pages with Jobs and Portfolio Companies tabs
 - **Multi-ATS Job Sync** — Automated sync of jobs from portfolio companies via Workable, Greenhouse, Lever, and Ashby public APIs. Descriptions stored as HTML for proper formatting.
-- **Scheduled Cron Syncs** — Vercel cron jobs for automatic profile sync, job refresh, portfolio data sync, and ATS discovery
+- **Scheduled Cron Syncs** — Vercel cron jobs for job refresh, portfolio data sync, and ATS discovery
 - **Portfolio Data Cache** — `VcNetwork` + `PortfolioCompany` tables cache Bridge API portfolio data locally so pages load in <100ms instead of 30-60+ seconds
 - **ATS Cache** — `PortfolioAtsCache` table stores discovered ATS mappings for fast scheduled refreshes
 - **Company Favicons** — Job cards, portfolio VC cards, and portfolio company cards all show logos via Google's favicon API with CSS initials fallback (server-component compatible, no `onError` needed)
-- **Talent-Portfolio Matching** — VC detail page talent tab matches Bridge members to portfolio companies via email domain + company name stem matching (raw SQL)
-- **Top nav + sidebar layout** — Fixed top nav (56px) with sidebar (240px); user avatar dropdown in top nav; nav links in sidebar with count badges
+- **Top nav + sidebar layout** — Fixed top nav (56px) with sidebar (240px); user avatar dropdown with rich profile popup in top nav; nav links in sidebar with count badges
+- **User Profile Popup** — Rich dropdown showing signed-in identity, access status (Admin/VC/Company/Talent), connected accounts (work/personal), and Bridge account link
 - **Bridge JWT SSO** — Login via Bridge API key (dev) or JWT
-- **Supabase PostgreSQL** — 21,720 profiles + 5,976 portfolio companies + jobs stored with real data
-- **Bulk sync** — Fetches all profiles from Bridge API via `GET /contacts/:id`
-- **Search** — By name, company, position, email across all profiles
+- **Supabase PostgreSQL** — Portfolio companies + jobs stored with real data
 
 ### What's NOT Built Yet
 - Introductions / warm referrals
-- Endorsements, referral tracking
-- Talent pools, events, messaging
+- Events, messaging
 - AI matching, recommended jobs
 
 ### Bridge Design System
@@ -62,22 +57,20 @@ The app uses the **Bridge Design System** (skills defined in `bridge-claude-skil
 
 ### Layout
 - **Top nav + sidebar** — Fixed top nav (56px) with sidebar (240px) below it.
-- **Top nav** (`src/components/layout/top-nav.tsx`) — Bridge logo + "Talent & Job Board" subtitle on left, API health badge (dev only) + user avatar dropdown on right. No nav links in top nav.
-- **Sidebar** (`src/components/layout/sidebar.tsx`) — Fixed left sidebar with "ADMIN" section label, 3 nav links (Talent Directory, Jobs, Portfolio) with Lucide icons (16px) + count badges, active state uses Royal 07 bg + Royal text. "Need help?" footer link. White background, Slate 15 right border.
-- **Dashboard layout** (`src/app/(dashboard)/layout.tsx`) renders `<TopNav>` + `<Sidebar>` + `<main className="pt-14 pl-60">`. Layout fetches sidebar counts (talent, jobs, portfolio) via `Promise.all` from Prisma.
+- **Top nav** (`src/components/layout/top-nav.tsx`) — Bridge logo + "Talent & Job Board" subtitle on left, API health badge (dev only) + user avatar dropdown (with rich profile popup) on right. No nav links in top nav.
+- **Sidebar** (`src/components/layout/sidebar.tsx`) — Fixed left sidebar with "ADMIN" section label, 2 nav links (Jobs, Portfolio) with Lucide icons (16px) + count badges, active state uses Royal 07 bg + Royal text. "Need help?" footer link. White background, Slate 15 right border.
+- **Dashboard layout** (`src/app/(dashboard)/layout.tsx`) renders `<TopNav>` + `<Sidebar>` + `<main className="pt-14 pl-60">`. Layout fetches sidebar counts (jobs, portfolio) via `Promise.all` from Prisma.
 - **API health badge** — Dev-only (`NODE_ENV !== 'production'`). Calls `GET /api/health` on mount + every 30s. Shows green/yellow/red dot + status text. Hover popover shows API URL, response time, last checked. Hidden entirely in production.
 
 ### Routing
-- `/` → redirects to `/talent`
-- `/talent` → Talent Directory (table view, supports `?role=`, `?q=`, `?page=`, `?per_page=`, `?view=companies`)
-- `/talent/:id` → Profile detail
+- `/` → redirects to `/jobs`
 - `/jobs` → Job Board (supports `?q=`, `?work_type=`, `?employment_type=`, `?experience_level=`, `?vc=`, `?page=`, `?per_page=`)
 - `/jobs/:id` → Job detail with apply (HTML descriptions rendered properly)
 - `/jobs/post` → Post a job (company/vc/admin only)
 - `/portfolio` → VC network listing (reads from cached DB data)
-- `/portfolio/:domain` → VC detail with tabbed layout (supports `?tab=jobs|companies|talent`, `?page=`, `?per_page=`)
+- `/portfolio/:domain` → VC detail with tabbed layout (supports `?tab=jobs|companies`, `?page=`, `?per_page=`)
+- `/profile` → User's own profile
 - `/login` → Login page
-- `/introductions` → redirects to `/talent` (placeholder)
 
 ---
 
@@ -118,13 +111,6 @@ Route prefix: `/api/v1/` — NOT `/api/current/` (specs reference the old prefix
 | `GET /api/v1/search/shared_contacts` | ❌ Timeout | Too slow |
 | `GET /api/v1/search/global_contacts` | ❌ Timeout | Too slow |
 
-### Talent Directory Sync Strategy
-
-1. `GET /api/v1/contacts/bridge_members_ids` → get all 21,720 member UUIDs
-2. `GET /api/v1/contacts/:id` (per member, 10 concurrent) → fetch full profile data
-3. Upsert into `talent_profiles` table with name, company, position, bio, photo, LinkedIn, etc.
-4. Bulk sync takes ~18 minutes. Delta sync only fetches profiles where `profileSyncedAt` is null.
-
 ### Job Sync Strategy (Multi-ATS)
 
 **Two-phase architecture** separates heavy discovery from lightweight refresh:
@@ -142,7 +128,6 @@ Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by
 
 | Cron | Schedule | What it does |
 |---|---|---|
-| `?type=profiles` | Every 6 hours | Delta sync — fetches new/unsynced Bridge member profiles |
 | `?type=jobs` | Every 6 hours (offset) | Refreshes jobs from all cached ATS accounts (~120 companies, ~2 min) |
 | `?type=portfolio` | Daily (2 AM) | Syncs VC network details + portfolio companies from Bridge API to local DB |
 | `?type=discovery` | Weekly (Sunday 3 AM) | Probes unchecked portfolio domains for new ATS accounts (150 per run, reads domains from cached DB) |
@@ -185,43 +170,31 @@ Configured in `vercel.json`, authenticated via `CRON_SECRET` env var, handled by
 bridge-talent-portal/
 ├── CLAUDE.md                              ← YOU ARE HERE
 ├── prisma/
-│   └── schema.prisma                      ← DB schema (13 models)
+│   └── schema.prisma                      ← DB schema (8 models)
 ├── prisma.config.ts                       ← Prisma config with dotenv
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/login/page.tsx          ← Login page
 │   │   ├── (dashboard)/
 │   │   │   ├── layout.tsx                 ← Dashboard layout (top-nav + sidebar + main)
-│   │   │   ├── page.tsx                   ← Redirects to /talent
-│   │   │   ├── talent/page.tsx            ← Main talent directory (role filters)
-│   │   │   ├── talent/[id]/page.tsx       ← Profile detail
+│   │   │   ├── page.tsx                   ← Redirects to /jobs
 │   │   │   ├── profile/page.tsx           ← User's own profile
 │   │   │   ├── jobs/page.tsx              ← Job board (search, filters, VC filter, favicons)
 │   │   │   ├── jobs/[id]/page.tsx         ← Job detail with HTML description rendering
 │   │   │   ├── jobs/post/page.tsx         ← Post a job form (company/vc/admin)
 │   │   │   ├── portfolio/page.tsx         ← VC network listing (reads from cached DB)
-│   │   │   ├── portfolio/[domain]/page.tsx ← VC detail with tabbed layout (Jobs/Companies/Talent)
-│   │   │   └── introductions/page.tsx     ← Redirects to /talent
+│   │   │   └── portfolio/[domain]/page.tsx ← VC detail with tabbed layout (Jobs/Companies)
 │   │   └── api/
 │   │       ├── auth/                      ← Login, logout, me
 │   │       ├── health/route.ts            ← Bridge API health check (dev, no auth)
-│   │       ├── sync/route.ts              ← Profile + job sync trigger (manual, auth required)
-│   │       ├── cron/route.ts             ← Scheduled sync endpoint (Vercel cron, CRON_SECRET auth)
-│   │       ├── talent/                    ← Talent CRUD API
-│   │       ├── jobs/                      ← Jobs API (list, detail, apply)
-│   │       └── ...                        ← Other API routes (scaffolded)
+│   │       ├── sync/route.ts              ← Job + portfolio sync trigger (manual, auth required)
+│   │       ├── cron/route.ts              ← Scheduled sync endpoint (Vercel cron, CRON_SECRET auth)
+│   │       └── jobs/                      ← Jobs API (list, detail, apply)
 │   ├── components/
 │   │   ├── layout/
 │   │   │   ├── top-nav.tsx                ← Top navigation (logo + subtitle + API badge + avatar)
-│   │   │   └── sidebar.tsx                ← Sidebar navigation (3 nav links + counts + help footer)
-│   │   ├── talent/
-│   │   │   ├── talent-card.tsx            ← Member card component (Bridge tokens, Lucide icons)
-│   │   │   ├── talent-directory-client.tsx ← Directory grid + empty states (search/roles moved to page)
-│   │   │   ├── talent-search-bar.tsx      ← Inline search input (39px, pill, white bg)
-│   │   │   ├── role-filter-dropdown.tsx   ← Role filter dropdown (replaces inline chips)
-│   │   │   ├── view-toggle.tsx            ← People/Companies toggle (37px, Slate 05 bg)
-│   │   │   ├── company-card.tsx           ← Company card with logo + avatar preview
-│   │   │   └── company-directory-client.tsx ← Company grid + empty states
+│   │   │   ├── sidebar.tsx                ← Sidebar navigation (2 nav links + counts + help footer)
+│   │   │   └── user-profile-popup.tsx     ← Rich user profile dropdown (identity, access, accounts)
 │   │   ├── jobs/
 │   │   │   ├── job-card.tsx               ← Job listing card (with favicons + source badge)
 │   │   │   ├── job-filters.tsx            ← Search + filter dropdowns + VC network filter
@@ -230,7 +203,7 @@ bridge-talent-portal/
 │   │   ├── portfolio/
 │   │   │   ├── vc-card.tsx                ← VC network card (server component, Google favicon)
 │   │   │   ├── portfolio-company-card.tsx  ← Portfolio company card (server component, Google favicon, optional jobCount)
-│   │   │   ├── vc-detail-tabs.tsx         ← Client tab bar for VC detail page (Jobs/Companies/Talent)
+│   │   │   ├── vc-detail-tabs.tsx         ← Client tab bar for VC detail page (Jobs/Companies)
 │   │   │   └── sync-portfolio-jobs-button.tsx ← Sync trigger button (admin/vc only)
 │   │   └── ui/                            ← shadcn/ui primitives
 │   ├── lib/
@@ -243,10 +216,7 @@ bridge-talent-portal/
 │   │   │   ├── portfolio.ts               ← fetchVcDetails, fetchPortfolioCompanies (Bridge API)
 │   │   │   └── introductions.ts           ← Intro endpoints
 │   │   ├── db/prisma.ts                   ← Prisma client singleton
-│   │   ├── portfolio-talent-match.ts      ← Talent-to-portfolio matching (email domain + company stem, raw SQL)
-│   │   ├── role-categories.ts             ← Role category filters for talent directory
 │   │   └── sync/
-│   │       ├── profile-sync.ts            ← Bulk/delta profile sync service
 │   │       ├── portfolio-sync.ts          ← Syncs VC details + portfolio companies to local DB
 │   │       ├── job-sync.ts                ← Job sync + cache-based refresh + discovery
 │   │       ├── ats-discovery.ts           ← Unified multi-ATS discovery (probes 4 providers)
@@ -286,12 +256,14 @@ bridge-talent-portal/
 ```
 
 ### Key Models
-- **TalentProfile** — 21,720 rows with real data: firstName, lastName, email, company, position, location, bio, profilePicUrl, linkedinUrl, username, isSuperConnector, profileSyncedAt
 - **Job** — Jobs from multi-ATS sync + manual posting. Key fields: title, description, companyDomain, source (`manual` | `workable` | `greenhouse` | `lever` | `ashby`), externalId (unique, for dedup), status, applyUrl, workType, employmentType, experienceLevel, skillsRequired
+- **Application** — Job applications. Uses `bridgeUserId` (Bridge user UUID) to track applicants. Composite unique on `[jobId, bridgeUserId]`.
 - **VcNetwork** — Caches VC/network details from Bridge API `GET /api/v1/tags/:domain/details`. Fields: domain (unique), title, description, location, isVc, founders, industries, industriesInvestIn (JSON). Synced daily by `?type=portfolio` cron.
 - **PortfolioCompany** — Caches portfolio company data from Bridge API v4 `network_portfolios`. Fields: domain, vcDomain (FK to VcNetwork), description, industries, status, funded, investDate. Composite unique on `[domain, vcDomain]`. ~5,976 rows across 3 VCs.
 - **PortfolioAtsCache** — Caches discovered ATS mappings (companyDomain → provider + slug). Used by scheduled cron for fast job refreshes without re-probing.
-- **Application, Endorsement, Referral, TalentPool, Event** — scaffolded but not populated yet
+- **SavedJob** — Bookmarked jobs by users (bridgeUserId + jobId).
+- **Event, EventRsvp** — Scaffolded but not populated yet.
+- **BridgeSyncLog** — Tracks sync operations.
 
 ---
 
@@ -320,8 +292,6 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Build check:** `npm run build` — catches TypeScript errors; run before declaring work done
 - **DB schema push:** See "Schema Push Workflow" above (must use session pooler port 5432)
 - **Prisma regenerate:** `npx prisma generate` — run after any schema change
-- **Profile bulk sync:** Login then `POST /api/sync {"mode":"bulk"}` — fetches all 21,720 profiles (~18 min)
-- **Profile delta sync:** `POST /api/sync {"mode":"delta"}` — only fetches profiles not yet synced
 - **Job sync:** `POST /api/sync {"type":"jobs"}` — fetches jobs from cached ATS accounts
 - **Portfolio sync:** `POST /api/sync {"type":"portfolio"}` — syncs VC details + portfolio companies to local DB
 - **Dev login:** In browser console: `fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ useApiKey:true, apiKey:'<BRIDGE_API_KEY>' }) })`
@@ -342,31 +312,24 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 - **Job `externalId` field** — Unique, format `{provider}:{id}` (e.g., `greenhouse:127817`, `ashby:cedc8928-...`). Used for dedup during sync. `null` for manually posted jobs.
 - **Job descriptions are HTML** — ATS sources (Greenhouse, Lever, Ashby) store HTML descriptions. The job detail page auto-detects HTML via regex and renders with `dangerouslySetInnerHTML`. Manual/Workable jobs render as plain text with `whitespace-pre-wrap`. Job card previews always strip HTML.
 - **Company favicons** — Job cards, VC cards, and portfolio company cards all use Google's favicon API: `https://www.google.com/s2/favicons?domain={domain}&sz=64`. CSS initials fallback rendered behind the image (absolute span + `z-10` on img). Server-component compatible — no `onError` handler, no `useState`, no `'use client'`.
-- **VC detail page tabs** — `/portfolio/:domain` uses URL-param tabs (`?tab=jobs|companies|talent`). The `VcDetailTabs` client component renders shadcn Tabs (line variant) with `<Link>` navigation. All 3 tab counts are fetched in parallel via `Promise.all`; only the active tab's paginated data is loaded. Default tab is `jobs`.
-- **Talent-portfolio matching** — `src/lib/portfolio-talent-match.ts` matches `TalentProfile` records to portfolio companies using raw SQL. Two strategies: (1) email domain match — `SPLIT_PART(email, '@', 2) = ANY(domains)`, (2) company name stem match — strip TLD from portfolio domains and match against `LOWER(company)`. Note: `TalentProfile.company` stores names ("Techstars"), while `PortfolioCompany.domain` stores domains ("techstars.com") — there's no FK between them.
+- **VC detail page tabs** — `/portfolio/:domain` uses URL-param tabs (`?tab=jobs|companies`). The `VcDetailTabs` client component renders shadcn Tabs (line variant) with `<Link>` navigation. Job count is fetched; only the active tab's paginated data is loaded. Default tab is `jobs`.
 - **Portfolio data is cached in DB** — `VcNetwork` + `PortfolioCompany` tables. Portfolio and jobs pages read from DB (fast). Bridge API `fetchPortfolioCompanies()` is only used by the sync service, NOT by page-load code paths. The `?type=portfolio` cron refreshes daily. Manual trigger: `POST /api/sync {"type":"portfolio"}`.
 - **Workable public API** — `GET https://apply.workable.com/api/v1/widget/accounts/{slug}/` — no auth needed. Returns `{ jobs: [...], total: N }`. Only provides title, department, location, shortcode, URL — no full descriptions.
 - **Portfolio ATS config** — Static mapping in `src/lib/sync/ats-config.ts`. Currently only Quantive uses Workable; other 7 companies are `manual_only`. Add new entries when portfolio companies adopt ATS with public APIs.
-- **Profile pics** — Most Bridge users don't have profile pics. The app uses initials avatars as fallback.
 - **Bridge Design System skills** — `bridge-claude-skills/` folder contains authoritative skill files: `bridge-design-system/SKILL.md` (tokens, colors, typography), `frontend-developer/SKILL.md` (implementation patterns), `ui-designer/SKILL.md`, `ux-consultant/SKILL.md`, `ux-copywriter/SKILL.md`. Always follow these for UI changes.
-- **Talent directory controls row** — Search bar, role filter dropdown, vertical divider, and view toggle are all rendered on ONE horizontal flex row in `talent/page.tsx` (not inside child components). The client components (`talent-directory-client.tsx`, `company-directory-client.tsx`) no longer render their own search bars or role filters.
-- **Role filter is a dropdown** — `role-filter-dropdown.tsx` uses shadcn `DropdownMenu` (not inline chips). The role categories data is defined in `src/lib/role-categories.ts` and passed as props from the page.
 - **Badge system** — `src/components/ui/badge.tsx` has 6 Bridge variants: `default` (Slate), `info` (Sky/Royal), `success` (Kelly), `warning` (Honey), `error` (Ruby), `purple`. Legacy variants (`secondary`, `outline`, `destructive`) are kept for backward compat.
-- **Bridge page header pattern** — ALL pages use the same header: 36px (`w-9 h-9`) Royal `#0038FF` `rounded-[12px]` icon container + 18px Bold `#0D1531` title inline + 14px `#81879C` subtitle below. Icons per page: Talent→`Users`, Jobs→`Briefcase`, Job Post→`PenSquare`, Portfolio→`Building2`, Profile→`User`. Defined in Figma (node `4892:2527`).
+- **Bridge page header pattern** — ALL pages use the same header: 36px (`w-9 h-9`) Royal `#0038FF` `rounded-[12px]` icon container + 18px Bold `#0D1531` title inline + 14px `#81879C` subtitle below. Icons per page: Jobs→`Briefcase`, Job Post→`PenSquare`, Portfolio→`Building2`, Profile→`User`. Defined in Figma (node `4892:2527`).
 - **Bridge color tokens** — All pages use explicit Bridge hex tokens instead of generic Tailwind/shadcn colors. Key: `#0D1531` (Charcoal text), `#3D445A` (Charcoal 80 secondary text), `#676C7E` (Charcoal 70 body text), `#81879C` (Slate 100 muted text), `#0D7C47` (green for salary/job count), `#D93025` (red for errors), `#0038FF` (Royal primary). NEVER use `text-green-600`, `text-blue-700`, `text-red-600` etc.
 - **Lucide icons only — NO emoji** — Zero emoji in the codebase. All emoji have been replaced: `📍`→`MapPin`, `⚡`→`Zap`, `🔄`→`RefreshCw`, `🟢🟡⚪`→Badge variants, `👥`→`Users`. Always use Lucide icons.
-- **Back links** — All detail pages (talent/[id], jobs/[id], portfolio/[domain]) use Lucide `ArrowLeft` icon (not inline SVG). Style: `text-[13px] text-[#81879C] hover:text-[#0D1531] transition-colors duration-150`.
+- **Back links** — All detail pages (jobs/[id], portfolio/[domain]) use Lucide `ArrowLeft` icon (not inline SVG). Style: `text-[13px] text-[#81879C] hover:text-[#0D1531] transition-colors duration-150`.
 - **Page padding** — All pages use `px-6 pt-6 pb-8` (not `px-8`). List pages use `max-w-7xl`, detail pages use `max-w-3xl` or `max-w-4xl`.
-- **`.page-header` removed** — The old gradient page-header CSS class has been removed from `globals.css`. All pages now use the inline Bridge header pattern instead.
-- **Job filters layout** — `job-filters.tsx` renders search + all filter selects on a single horizontal flex row (matching talent page controls pattern). Search is pill-shaped with `onKeyDown` Enter handler (no form/button). A `w-px h-6` divider separates search from filter dropdowns.
+- **Job filters layout** — `job-filters.tsx` renders search + all filter selects on a single horizontal flex row. Search is pill-shaped with `onKeyDown` Enter handler (no form/button). A `w-px h-6` divider separates search from filter dropdowns.
 - **Sync button** — `sync-portfolio-jobs-button.tsx` uses `RefreshCw` icon (idle) and `Loader2` with `animate-spin` (syncing). Success text is `text-[#0D7C47]`, error text is `text-[#D93025]`.
 - **Badge usage** — Cards and pages use only Bridge badge variants: `default` for type/industry tags, `info` for roles/source ("via Greenhouse"), `success` for live status/high match, `warning` for super connector. NEVER use `variant="secondary"` or `variant="outline"` for new code.
 - **Card styling** — All cards use `card-elevated group` class (which includes `rounded-xl`). Favicon containers inside cards use `rounded-lg bg-[#F2F3F5]`. Border dividers use `border-[#ECEDF0]`.
 - **Section titles in detail pages** — Use `h2` with `text-[16px] font-semibold text-[#0D1531] mb-4` inside `CardContent` (NOT `CardHeader`/`CardTitle`).
-- **Talent directory header** — (Legacy note) Same Bridge header pattern described above with Users icon.
-- **Talent directory is a table view** — `talent-directory-client.tsx` renders an HTML `<table>` (not a card grid). Columns: Name (avatar + link), Position, Company, Location, Roles (badges), Bio. The old `talent-card.tsx` is no longer imported by the directory but kept for use in portfolio talent tab.
-- **Shared Pagination component** — `src/components/ui/pagination.tsx` is a `'use client'` component used on all 3 paginated pages (talent, jobs, portfolio). Figma design (node `4894:2636`): "Page X of Y" text + prev/next chevron buttons (pill, Slate 60 border) + rows-per-page dropdown (10/20/50). Props: `page`, `totalPages`, `perPage`, `basePath`, `extraParams`. Does NOT accept functions as props (Server→Client serialization boundary). All pages support `?per_page=` URL param.
-- **View toggle icons** — People tab uses `TableProperties` icon (was `LayoutGrid`), Companies tab uses `List`. Toggle outer bg is Slate 10 (`#F2F3F5`).
+- **Shared Pagination component** — `src/components/ui/pagination.tsx` is a `'use client'` component used on paginated pages (jobs, portfolio). Figma design (node `4894:2636`): "Page X of Y" text + prev/next chevron buttons (pill, Slate 60 border) + rows-per-page dropdown (10/20/50). Props: `page`, `totalPages`, `perPage`, `basePath`, `extraParams`. Does NOT accept functions as props (Server→Client serialization boundary). All pages support `?per_page=` URL param.
+- **User profile popup** — `src/components/layout/user-profile-popup.tsx` is a rich Radix DropdownMenu showing signed-in identity, access status card (Admin/VC/Company/Talent with icons + colors), connected accounts (work/personal email sections with Google favicons), and Bridge account link. Lazy-fetches `/api/auth/me` on open with 5-minute cache. Uses extensive defensive type guards for Bridge API data.
 
 ---
 
@@ -377,15 +340,9 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Change top nav | `src/components/layout/top-nav.tsx` |
 | Change sidebar nav | `src/components/layout/sidebar.tsx` |
 | Change page layout | `src/app/(dashboard)/layout.tsx` |
+| Change user profile popup | `src/components/layout/user-profile-popup.tsx` |
 | API health check | `src/app/api/health/route.ts` |
 | Modify pagination | `src/components/ui/pagination.tsx` |
-| Modify talent table | `src/components/talent/talent-directory-client.tsx` |
-| Modify talent cards (portfolio) | `src/components/talent/talent-card.tsx` |
-| Modify talent page | `src/app/(dashboard)/talent/page.tsx` |
-| Modify role filter dropdown | `src/components/talent/role-filter-dropdown.tsx` |
-| Modify role category definitions | `src/lib/role-categories.ts` |
-| Modify search | `src/components/talent/talent-search-bar.tsx` |
-| Modify view toggle | `src/components/talent/view-toggle.tsx` |
 | Modify design tokens | `src/app/globals.css` |
 | Modify jobs page | `src/app/(dashboard)/jobs/page.tsx` |
 | Modify job detail page | `src/app/(dashboard)/jobs/[id]/page.tsx` |
@@ -401,16 +358,13 @@ DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true&c
 | Add Bridge API call | `src/lib/bridge-api/users.ts` or `search.ts` |
 | Add Bridge API type | `src/lib/bridge-api/types.ts` |
 | Change DB schema | `prisma/schema.prisma` → push → generate |
-| Modify profile sync | `src/lib/sync/profile-sync.ts` |
 | Modify portfolio sync | `src/lib/sync/portfolio-sync.ts` |
 | Modify portfolio page | `src/app/(dashboard)/portfolio/page.tsx` |
 | Modify portfolio detail | `src/app/(dashboard)/portfolio/[domain]/page.tsx` |
 | Modify VC detail tabs | `src/components/portfolio/vc-detail-tabs.tsx` |
 | Modify VC cards | `src/components/portfolio/vc-card.tsx` |
 | Modify portfolio company cards | `src/components/portfolio/portfolio-company-card.tsx` |
-| Modify talent-portfolio matching | `src/lib/portfolio-talent-match.ts` |
 | Bridge API portfolio calls | `src/lib/bridge-api/portfolio.ts` |
-| Modify talent detail page | `src/app/(dashboard)/talent/[id]/page.tsx` |
 | Modify profile page | `src/app/(dashboard)/profile/page.tsx` |
 | Modify sync button | `src/components/portfolio/sync-portfolio-jobs-button.tsx` |
 | Auth / session | `src/lib/auth/session.ts` |

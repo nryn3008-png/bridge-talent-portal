@@ -53,7 +53,7 @@ export function JobFilters({ vcNetworks }: JobFiltersProps) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {/* Search — pill shape, matches TalentSearchBar pattern */}
-      <div className="relative flex-1 min-w-[200px] max-w-[320px]">
+      <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#81879C]" />
         <input
           type="text"

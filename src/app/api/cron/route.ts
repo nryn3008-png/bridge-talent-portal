@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
-import { deltaSyncBridgeMembers } from '@/lib/sync/profile-sync'
 import { syncJobsFromCache, discoverNewAtsAccounts } from '@/lib/sync/job-sync'
 import { syncPortfolioData } from '@/lib/sync/portfolio-sync'
 import { prisma } from '@/lib/db/prisma'
 
-// GET /api/cron?type=profiles|jobs|discovery|portfolio
+// GET /api/cron?type=jobs|discovery|portfolio
 // Called by Vercel Cron — authenticated via CRON_SECRET
 export async function GET(request: Request) {
   // Verify cron secret
@@ -21,17 +20,14 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const type = searchParams.get('type') ?? 'profiles'
+  const type = searchParams.get('type')
+
+  if (!type) {
+    return NextResponse.json({ error: 'Missing required query param: type' }, { status: 400 })
+  }
 
   try {
     switch (type) {
-      // ── Profile Delta Sync ───────────────────────────────────────────
-      case 'profiles': {
-        console.log('[cron] Starting profile delta sync...')
-        const result = await deltaSyncBridgeMembers()
-        return NextResponse.json({ success: true, type: 'profiles', ...result })
-      }
-
       // ── Job Refresh from Cached ATS Accounts ────────────────────────
       case 'jobs': {
         console.log('[cron] Starting job refresh from cached ATS accounts...')

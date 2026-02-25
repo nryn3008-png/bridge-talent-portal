@@ -6,55 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─── Talent Profiles ────────────────────────────────────────────────────────
-// Extends Bridge user data with job-seeking fields (architecture.md §2.1)
-model TalentProfile {
-  id                  String    @id @default(uuid())
-  bridgeUserId        String    @unique @map("bridge_user_id")
-
-  // ── Profile data from Bridge /contacts/:id ──
-  firstName           String?   @map("first_name")
-  lastName            String?   @map("last_name")
-  email               String?
-  company             String?
-  position            String?
-  location            String?
-  bio                 String?   @db.Text
-  profilePicUrl       String?   @map("profile_pic_url")
-  linkedinUrl         String?   @map("linkedin_url")
-  username            String?
-  isSuperConnector    Boolean   @default(false) @map("is_super_connector")
-
-  // ── Talent-specific fields ──
-  talentStatus        String    @default("not_looking") @map("talent_status") // actively_looking, passively_open, not_looking
-  openToRoles         String[]  @map("open_to_roles")
-  skills              String[]
-  experienceYears     Int?      @map("experience_years")
-  salaryMin           Int?      @map("salary_min")
-  salaryMax           Int?      @map("salary_max")
-  salaryCurrency      String    @default("USD") @map("salary_currency")
-  workPreference      String?   @map("work_preference") // remote, hybrid, onsite
-  willingToRelocate   Boolean   @default(false) @map("willing_to_relocate")
-  preferredLocations  String[]  @map("preferred_locations")
-  education           Json      @default("[]")
-  visibility          String    @default("network_only") // network_only, portfolio_only, public
-  profileCompleteness Float     @default(0) @map("profile_completeness")
-  lastJobSearchAt     DateTime? @map("last_job_search_at")
-  referralScore       Float     @default(0) @map("referral_score")
-  profileSyncedAt     DateTime? @map("profile_synced_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
-
-  applications      Application[]
-  endorsements      Endorsement[]
-  referrals         Referral[]
-  talentPoolMembers TalentPoolMember[]
-
-  @@index([talentStatus], map: "idx_talent_profiles_status")
-  @@index([company], map: "idx_talent_profiles_company")
-  @@map("talent_profiles")
-}
-
 // ─── Jobs ────────────────────────────────────────────────────────────────────
 // Matches architecture.md §2.1 jobs table exactly
 model Job {
@@ -87,7 +38,6 @@ model Job {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   applications Application[]
-  referrals    Referral[]
 
   @@index([status], map: "idx_jobs_status")
   @@index([companyDomain], map: "idx_jobs_company")
@@ -98,7 +48,6 @@ model Job {
 model Application {
   id               String    @id @default(uuid())
   jobId            String    @map("job_id")
-  talentId         String    @map("talent_id")
   bridgeUserId     String    @map("bridge_user_id")
   status           String    @default("applied") // applied, reviewed, interviewing, offered, hired, rejected, withdrawn
   coverNote        String?   @map("cover_note") @db.Text
@@ -113,85 +62,13 @@ model Application {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  job           Job           @relation(fields: [jobId], references: [id])
-  talentProfile TalentProfile @relation(fields: [talentId], references: [id])
+  job Job @relation(fields: [jobId], references: [id])
 
-  @@unique([jobId, talentId])
+  @@unique([jobId, bridgeUserId])
   @@index([jobId], map: "idx_applications_job")
-  @@index([talentId], map: "idx_applications_talent")
+  @@index([bridgeUserId], map: "idx_applications_user")
   @@index([status], map: "idx_applications_status")
   @@map("applications")
-}
-
-// ─── Endorsements ────────────────────────────────────────────────────────────
-model Endorsement {
-  id                   String   @id @default(uuid())
-  talentId             String   @map("talent_id")
-  endorserBridgeUserId String   @map("endorser_bridge_user_id")
-  endorserType         String   @map("endorser_type") // vc_partner, founder, peer, colleague
-  endorsementText      String?  @map("endorsement_text") @db.Text
-  skillsEndorsed       String[] @map("skills_endorsed")
-  relationship         String?
-  isVerified           Boolean  @default(false) @map("is_verified")
-  createdAt            DateTime @default(now()) @map("created_at")
-
-  talentProfile TalentProfile @relation(fields: [talentId], references: [id])
-
-  @@index([talentId], map: "idx_endorsements_talent")
-  @@map("endorsements")
-}
-
-// ─── Referrals ───────────────────────────────────────────────────────────────
-model Referral {
-  id                   String   @id @default(uuid())
-  jobId                String   @map("job_id")
-  referrerBridgeUserId String   @map("referrer_bridge_user_id")
-  referredTalentId     String   @map("referred_talent_id")
-  bridgeIntroId        String?  @map("bridge_intro_id")
-  status               String   @default("pending") // pending, accepted, applied, hired, declined
-  note                 String?  @db.Text
-  rewardStatus         String?  @map("reward_status") // pending, eligible, paid
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
-
-  job           Job           @relation(fields: [jobId], references: [id])
-  talentProfile TalentProfile @relation(fields: [referredTalentId], references: [id])
-
-  @@index([jobId], map: "idx_referrals_job")
-  @@index([referrerBridgeUserId], map: "idx_referrals_referrer")
-  @@map("referrals")
-}
-
-// ─── Talent Pools ─────────────────────────────────────────────────────────────
-model TalentPool {
-  id            String   @id @default(uuid())
-  name          String
-  description   String?  @db.Text
-  createdBy     String   @map("created_by")
-  networkDomain String   @map("network_domain")
-  autoRules     Json?    @map("auto_rules")
-  visibility    String   @default("vc_only") // vc_only, shared_with_portfolio
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  members TalentPoolMember[]
-
-  @@map("talent_pools")
-}
-
-model TalentPoolMember {
-  id        String   @id @default(uuid())
-  poolId    String   @map("pool_id")
-  talentId  String   @map("talent_id")
-  addedBy   String?  @map("added_by")
-  note      String?
-  createdAt DateTime @default(now()) @map("created_at")
-
-  pool          TalentPool    @relation(fields: [poolId], references: [id])
-  talentProfile TalentProfile @relation(fields: [talentId], references: [id])
-
-  @@unique([poolId, talentId])
-  @@map("talent_pool_members")
 }
 
 // ─── Events ──────────────────────────────────────────────────────────────────

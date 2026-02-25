@@ -8,7 +8,6 @@ interface VcDetailTabsProps {
   activeTab: string
   jobCount: number
   companyCount: number
-  talentCount: number
 }
 
 export function VcDetailTabs({
@@ -16,7 +15,6 @@ export function VcDetailTabs({
   activeTab,
   jobCount,
   companyCount,
-  talentCount,
 }: VcDetailTabsProps) {
   const base = `/portfolio/${encodeURIComponent(vcDomain)}`
 
@@ -31,11 +29,6 @@ export function VcDetailTabs({
         <TabsTrigger value="companies" asChild>
           <Link href={`${base}?tab=companies`}>
             Portfolio Companies ({companyCount.toLocaleString()})
-          </Link>
-        </TabsTrigger>
-        <TabsTrigger value="talent" asChild>
-          <Link href={`${base}?tab=talent`}>
-            Talent Network ({talentCount.toLocaleString()})
           </Link>
         </TabsTrigger>
       </TabsList>

@@ -17,12 +17,11 @@ const DEV_SESSION: SessionPayload = {
 async function getSidebarCounts() {
   if (!prisma) return undefined
   try {
-    const [talent, jobs, portfolio] = await Promise.all([
-      prisma.talentProfile.count(),
+    const [jobs, portfolio] = await Promise.all([
       prisma.job.count({ where: { status: 'active' } }),
       prisma.vcNetwork.count(),
     ])
-    return { talent, jobs, portfolio }
+    return { jobs, portfolio }
   } catch {
     return undefined
   }

@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth/session'
-import { bulkSyncBridgeMembers, deltaSyncBridgeMembers } from '@/lib/sync/profile-sync'
 import { syncJobsFromAts, syncJobsFromPortfolioCompanies } from '@/lib/sync/job-sync'
 import { syncPortfolioData } from '@/lib/sync/portfolio-sync'
 import { prisma } from '@/lib/db/prisma'
 
 // POST /api/sync — trigger a sync (admin/vc only)
-// Body: { type?: "profiles" | "jobs" | "portfolio_jobs" | "portfolio", mode?: "bulk" | "delta", vcDomain?: string }
+// Body: { type?: "jobs" | "portfolio_jobs" | "portfolio", vcDomain?: string }
 export async function POST(request: Request) {
   const session = await getSession()
   if (!session || !['vc', 'admin'].includes(session.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { mode, type = 'profiles', vcDomain } = await request.json().catch(() => ({ mode: 'delta', type: 'profiles', vcDomain: undefined }))
+  const { type = 'jobs', vcDomain } = await request.json().catch(() => ({ type: 'jobs', vcDomain: undefined }))
 
   try {
     if (type === 'jobs') {
@@ -65,12 +64,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, type: 'portfolio_jobs', ...result })
     }
 
-    // Default: profile sync
-    const result = mode === 'bulk'
-      ? await bulkSyncBridgeMembers()
-      : await deltaSyncBridgeMembers()
-
-    return NextResponse.json({ success: true, type: 'profiles', ...result })
+    return NextResponse.json({ error: `Unknown sync type: ${type}` }, { status: 400 })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Sync failed'
     console.error('Sync error:', message)

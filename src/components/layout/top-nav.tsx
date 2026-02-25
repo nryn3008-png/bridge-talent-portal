@@ -6,15 +6,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
-import { User, LogOut, RefreshCw } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { RefreshCw } from 'lucide-react'
+import { UserProfilePopup } from '@/components/layout/user-profile-popup'
 
 interface TopNavProps {
   session: SessionPayload
@@ -176,7 +169,6 @@ function ApiHealthBadge() {
 
 export function TopNav({ session }: TopNavProps) {
   const router = useRouter()
-  const initials = `${session.firstName?.[0] ?? ''}${session.lastName?.[0] ?? ''}`.toUpperCase()
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -189,7 +181,7 @@ export function TopNav({ session }: TopNavProps) {
     <header className="h-14 bg-white border-b border-[rgba(236,237,240,0.6)] flex items-center px-8 fixed top-0 left-0 right-0 z-50">
       {/* Left — Logo + divider + subtitle */}
       <div className="flex items-center gap-4">
-        <Link href="/talent" className="flex items-center flex-shrink-0">
+        <Link href="/jobs" className="flex items-center flex-shrink-0">
           <Image
             src="/logos/bridge-logo.svg"
             alt="Bridge"
@@ -217,53 +209,7 @@ export function TopNav({ session }: TopNavProps) {
         )}
 
         {/* User menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="flex items-center rounded-[12px] p-1 hover:bg-[#F2F3F5] transition-colors duration-150 outline-none">
-              {session.profilePicUrl ? (
-                <Image
-                  src={session.profilePicUrl}
-                  alt={`${session.firstName} ${session.lastName}`}
-                  width={28}
-                  height={28}
-                  className="w-7 h-7 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-[#F2F5FF] flex items-center justify-center">
-                  <span className="text-[#0038FF] font-semibold text-[11px]">{initials}</span>
-                </div>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none truncate">
-                  {session.firstName} {session.lastName}
-                </p>
-                <p className="text-xs text-muted-foreground leading-none truncate">
-                  {session.email}
-                </p>
-                <span className="inline-flex items-center mt-1.5 w-fit px-2 py-0.5 rounded text-xs font-medium capitalize bg-[#E6EBFF] text-[#0038FF]">
-                  {session.role}
-                </span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/profile" className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                Your Profile
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <UserProfilePopup session={session} onLogout={handleLogout} />
       </div>
     </header>
   )

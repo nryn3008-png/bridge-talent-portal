@@ -2,17 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, Briefcase, Building2, HelpCircle } from 'lucide-react'
+import { Briefcase, Building2, HelpCircle } from 'lucide-react'
 
 interface NavItem {
   href: string
   label: string
-  icon: typeof Users
-  countKey: 'talent' | 'jobs' | 'portfolio'
+  icon: typeof Briefcase
+  countKey: 'jobs' | 'portfolio'
 }
 
 const NAV_LINKS: NavItem[] = [
-  { href: '/talent', label: 'Talent Directory', icon: Users, countKey: 'talent' },
   { href: '/jobs', label: 'Jobs', icon: Briefcase, countKey: 'jobs' },
   { href: '/portfolio', label: 'Portfolio', icon: Building2, countKey: 'portfolio' },
 ]
@@ -27,7 +26,6 @@ function formatCount(n: number): string {
 
 interface SidebarProps {
   counts?: {
-    talent?: number
     jobs?: number
     portfolio?: number
   }

@@ -34,16 +34,10 @@ export default async function JobDetailPage({ params }: PageProps) {
       : null
 
   // Check if user already applied
-  let hasApplied = false
-  const talentProfile = await prisma.talentProfile.findUnique({
-    where: { bridgeUserId: session.userId },
+  const existingApplication = await prisma.application.findUnique({
+    where: { jobId_bridgeUserId: { jobId: id, bridgeUserId: session.userId } },
   })
-  if (talentProfile) {
-    const existing = await prisma.application.findUnique({
-      where: { jobId_talentId: { jobId: id, talentId: talentProfile.id } },
-    })
-    hasApplied = !!existing
-  }
+  const hasApplied = !!existingApplication
 
   return (
     <div className="px-6 pt-6 pb-8">

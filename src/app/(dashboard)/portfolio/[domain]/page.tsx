@@ -7,23 +7,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { prisma } from '@/lib/db/prisma'
 import { SyncPortfolioJobsButton } from '@/components/portfolio/sync-portfolio-jobs-button'
 import { VcDetailTabs } from '@/components/portfolio/vc-detail-tabs'
-import { TalentCard } from '@/components/talent/talent-card'
-import {
-  buildTalentMatchArrays,
-  countPortfolioTalent,
-  fetchPortfolioTalent,
-} from '@/lib/portfolio-talent-match'
 import { Pagination } from '@/components/ui/pagination'
-import { ArrowLeft, MapPin, Briefcase, Building2, Users } from 'lucide-react'
+import { ArrowLeft, MapPin, Briefcase, Building2 } from 'lucide-react'
 import Link from 'next/link'
-import type { BridgeMember } from '@/lib/bridge-api/types'
 
 interface PageProps {
   params: Promise<{ domain: string }>
   searchParams: Promise<Record<string, string | undefined>>
 }
 
-const VALID_TABS = ['jobs', 'companies', 'talent'] as const
+const VALID_TABS = ['jobs', 'companies'] as const
 type Tab = (typeof VALID_TABS)[number]
 
 export default async function VcDetailPage({ params, searchParams }: PageProps) {
@@ -76,21 +69,12 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
     .sort(([, a], [, b]) => b - a)
     .slice(0, 10)
 
-  // ── Parallel count queries for all tab headers ──
-  const { emailDomains, companyStems } = buildTalentMatchArrays(
-    companyDomains,
-    decodedDomain,
-    vc.title
-  )
-
-  const [jobCount, talentCount] = await Promise.all([
-    companyDomains.length > 0
-      ? prisma.job.count({
-          where: { companyDomain: { in: companyDomains }, status: 'active' },
-        })
-      : 0,
-    countPortfolioTalent(prisma, emailDomains, companyStems),
-  ])
+  // ── Job count for tab header ──
+  const jobCount = companyDomains.length > 0
+    ? await prisma.job.count({
+        where: { companyDomain: { in: companyDomains }, status: 'active' },
+      })
+    : 0
 
   // ── Active tab data ──
   const defaultPerPage = tab === 'jobs' ? 18 : 24
@@ -112,9 +96,6 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
   let pagedCompanies: typeof companies = []
   let companiesTotalPages = 0
   let jobCountsByDomain: Record<string, number> = {}
-
-  let talentMembers: BridgeMember[] = []
-  let talentTotalPages = 0
 
   if (tab === 'jobs') {
     if (companyDomains.length > 0) {
@@ -151,37 +132,9 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
       })
       jobCountsByDomain = Object.fromEntries(grouped.map((g) => [g.companyDomain, g._count.id]))
     }
-  } else if (tab === 'talent') {
-    const result = await fetchPortfolioTalent(
-      prisma,
-      emailDomains,
-      companyStems,
-      page,
-      perPage
-    )
-    talentTotalPages = Math.ceil(result.total / perPage)
-    talentMembers = result.profiles.map(
-      (p): BridgeMember => ({
-        id: p.bridgeUserId,
-        sid: 0,
-        first_name: p.firstName ?? '',
-        last_name: p.lastName ?? '',
-        email: p.email ?? undefined,
-        profile_pic_url: p.profilePicUrl ?? undefined,
-        position: p.position ?? undefined,
-        company: p.company ?? undefined,
-        location: p.location ?? undefined,
-        bio: p.bio ?? undefined,
-        linkedin_profile_url: p.linkedinUrl ?? undefined,
-        is_super_connector: p.isSuperConnector,
-        icp_roles: p.openToRoles,
-        icp_industries: p.skills,
-      })
-    )
   }
 
-  const totalPages =
-    tab === 'jobs' ? jobsTotalPages : tab === 'companies' ? companiesTotalPages : talentTotalPages
+  const totalPages = tab === 'jobs' ? jobsTotalPages : companiesTotalPages
 
   const portfolioExtraParams: Record<string, string> = { tab }
 
@@ -254,7 +207,6 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
           activeTab={tab}
           jobCount={jobCount}
           companyCount={companyCount}
-          talentCount={talentCount}
         />
 
         {/* ═══ Jobs Tab ═══ */}
@@ -367,29 +319,6 @@ export default async function VcDetailPage({ params, searchParams }: PageProps) 
                     jobCount={jobCountsByDomain[company.domain] ?? 0}
                   />
                 ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ═══ Talent Tab ═══ */}
-        {tab === 'talent' && (
-          <div>
-            {talentMembers.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-stagger">
-                {talentMembers.map((member) => (
-                  <TalentCard key={member.id} member={member} />
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-state-icon">
-                  <Users className="w-6 h-6 text-[#81879C]" />
-                </div>
-                <h3 className="text-[16px] font-semibold text-[#0D1531] mb-2">No talent found</h3>
-                <p className="text-[14px] text-[#81879C]">
-                  No Bridge members matched to this VC network or its portfolio companies yet.
-                </p>
               </div>
             )}
           </div>
