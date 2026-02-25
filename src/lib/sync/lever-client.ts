@@ -28,21 +28,34 @@ export interface LeverJob {
   }
 }
 
+/**
+ * Lever hosts on both US (api.lever.co) and EU (api.eu.lever.co) domains.
+ * Some companies are only on the EU API. We try US first, then EU.
+ */
+const LEVER_API_BASES = [
+  'https://api.lever.co',
+  'https://api.eu.lever.co',
+] as const
+
 export async function fetchLeverJobs(companySlug: string): Promise<LeverJob[]> {
-  const url = `https://api.lever.co/v0/postings/${companySlug}?mode=json`
+  for (const base of LEVER_API_BASES) {
+    const url = `${base}/v0/postings/${companySlug}?mode=json`
 
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-  })
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    })
 
-  if (!response.ok) {
-    throw new Error(`Lever API error ${response.status} for company ${companySlug}`)
+    if (response.ok) {
+      const jobs: LeverJob[] = await response.json()
+      if (Array.isArray(jobs) && jobs.length > 0) {
+        return jobs
+      }
+    }
   }
 
-  // Lever returns a bare array, not wrapped in an object
-  const jobs: LeverJob[] = await response.json()
-  return jobs ?? []
+  // Neither US nor EU returned jobs
+  throw new Error(`Lever API: no jobs found for ${companySlug} on US or EU`)
 }
 
 /**
@@ -62,24 +75,26 @@ export async function tryLeverDiscovery(
   ])]
 
   for (const slug of slugs) {
-    try {
-      const url = `https://api.lever.co/v0/postings/${slug}?mode=json`
-      const response = await fetch(url, {
-        headers: { Accept: 'application/json' },
-        cache: 'no-store',
-      })
+    for (const base of LEVER_API_BASES) {
+      try {
+        const url = `${base}/v0/postings/${slug}?mode=json`
+        const response = await fetch(url, {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+        })
 
-      if (response.ok) {
-        const jobs: LeverJob[] = await response.json()
-        if (Array.isArray(jobs) && jobs.length > 0) {
-          return { slug, jobs }
+        if (response.ok) {
+          const jobs: LeverJob[] = await response.json()
+          if (Array.isArray(jobs) && jobs.length > 0) {
+            return { slug, jobs }
+          }
         }
-      }
 
-      // Rate limit: wait 500ms between attempts
-      await new Promise((r) => setTimeout(r, 500))
-    } catch {
-      // Not a Lever account
+        // Rate limit: wait 500ms between attempts
+        await new Promise((r) => setTimeout(r, 500))
+      } catch {
+        // Not a Lever account
+      }
     }
   }
 
