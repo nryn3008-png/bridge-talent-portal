@@ -21,6 +21,12 @@ export const PORTFOLIO_ATS_CONFIG: AtsConfig[] = [
     companyName: 'Bees & Bears',
     companyDomain: 'beesandbears.com',
   },
+  {
+    provider: 'ashby',
+    accountSlug: 'lemon-markets',
+    companyName: 'lemon.markets',
+    companyDomain: 'lemon.markets',
+  },
   { provider: 'manual_only', companyName: 'Kaia Health', companyDomain: 'kaiahealth.com' },
   { provider: 'manual_only', companyName: 'Clarisights', companyDomain: 'clarisights.com' },
   { provider: 'manual_only', companyName: 'SimplStudy', companyDomain: 'simplestudy.ie' },

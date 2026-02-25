@@ -53,10 +53,12 @@ export async function tryAshbyDiscovery(
   companyDomain: string,
 ): Promise<{ slug: string; jobs: AshbyJob[] } | null> {
   const baseName = companyDomain.replace(/\.\w+$/, '')
+  const domainHyphenated = companyDomain.replace(/\./g, '-') // "lemon.markets" → "lemon-markets"
   const slugs = [...new Set([
     baseName,
     baseName.replace(/[^a-z0-9]/gi, ''),
     baseName.replace(/[^a-z0-9]/gi, '-'),
+    domainHyphenated,
   ])]
 
   for (const slug of slugs) {

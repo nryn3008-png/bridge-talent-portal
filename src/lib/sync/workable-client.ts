@@ -51,15 +51,14 @@ export async function tryWorkableDiscovery(
 ): Promise<{ slug: string; jobs: WorkableJob[] } | null> {
   // Derive candidate slugs from the domain
   const baseName = companyDomain.replace(/\.\w+$/, '') // "kaiahealth.com" → "kaiahealth"
-  const slugs = [
+  const domainHyphenated = companyDomain.replace(/\./g, '-') // "lemon.markets" → "lemon-markets"
+  const slugs = [...new Set([
     baseName,                              // "kaiahealth"
     baseName.replace(/[^a-z0-9]/gi, '-'),  // handle special chars
-  ]
-  // If name looks like compound word, try splitting (e.g., "kaiahealth" → "kaia-health")
-  // Only add unique slugs
-  const uniqueSlugs = [...new Set(slugs)]
+    domainHyphenated,                      // "lemon-markets" (full domain, dots→hyphens)
+  ])]
 
-  for (const slug of uniqueSlugs) {
+  for (const slug of slugs) {
     try {
       const url = `https://apply.workable.com/api/v1/widget/accounts/${slug}/`
       const response = await fetch(url, {

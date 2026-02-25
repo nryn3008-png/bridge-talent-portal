@@ -115,12 +115,15 @@ export async function tryPersonioDiscovery(
   const baseName = companyDomain.replace(/\.\w+$/, '')
   const stripped = baseName.replace(/[^a-z0-9]/gi, '')
   const hyphenated = baseName.replace(/[^a-z0-9]/gi, '-')
+  const domainHyphenated = companyDomain.replace(/\./g, '-') // "lemon.markets" → "lemon-markets"
 
-  // Also try common suffixes like -gmbh, -inc, -ltd (common in Personio slugs)
+  // Also try common suffixes like -gmbh (common in Personio slugs)
+  // and full domain with dots→hyphens for non-standard TLDs
   const slugs = [...new Set([
     baseName,
     stripped,
     hyphenated,
+    domainHyphenated,
     `${hyphenated}-gmbh`,
     `${stripped}-gmbh`,
   ])]
