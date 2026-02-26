@@ -16,8 +16,9 @@ import { tryWorkdayDiscovery, mapWorkdayJobToJobData, type WorkdayJob } from './
 import { trySuccessFactorsDiscovery, mapSuccessFactorsJobToJobData, type SuccessFactorsJob } from './successfactors-client'
 import { tryComeetDiscovery, mapComeetJobToJobData, type ComeetPosition } from './comeet-client'
 import { tryPaylocityDiscovery, mapPaylocityJobToJobData, type PaylocityJob } from './paylocity-client'
+import { scrapeWithFallback, type RawJob } from './fallback-scraper'
 
-export type AtsProvider = 'workable' | 'greenhouse' | 'lever' | 'ashby' | 'recruitee' | 'smartrecruiters' | 'personio' | 'pinpoint' | 'rippling' | 'workday' | 'successfactors' | 'comeet' | 'paylocity'
+export type AtsProvider = 'workable' | 'greenhouse' | 'lever' | 'ashby' | 'recruitee' | 'smartrecruiters' | 'personio' | 'pinpoint' | 'rippling' | 'workday' | 'successfactors' | 'comeet' | 'paylocity' | 'fallback'
 
 /** Common shape for all ATS-mapped job data, ready for DB upsert */
 export interface MappedJobData {
@@ -215,5 +216,86 @@ export async function discoverAtsJobs(companyDomain: string): Promise<DiscoveryR
     }
   }
 
+  // ── Fallback: scrape careers page directly ──────────────────────────────
+  // If none of the 13 ATS providers matched, try scraping the company's
+  // careers page as a last resort using cheerio + optional Playwright.
+  console.log(`[ats-discovery] No ATS provider found for ${companyDomain}, trying fallback scraper...`)
+  const fallbackResult = await tryFallbackScraper(companyDomain)
+  if (fallbackResult) {
+    return fallbackResult
+  }
+
   return null
+}
+
+/**
+ * Try the fallback scraper on common careers page URLs for a domain.
+ * Returns a DiscoveryResult with provider='fallback' or null.
+ */
+async function tryFallbackScraper(companyDomain: string): Promise<DiscoveryResult | null> {
+  const careersUrls = [
+    `https://${companyDomain}/careers`,
+    `https://${companyDomain}/jobs`,
+    `https://www.${companyDomain}/careers`,
+    `https://www.${companyDomain}/jobs`,
+    `https://${companyDomain}/career`,
+    `https://${companyDomain}/join-us`,
+    `https://www.${companyDomain}/en/career`,
+    `https://www.${companyDomain}/en/careers`,
+  ]
+
+  for (const url of careersUrls) {
+    try {
+      const rawJobs = await scrapeWithFallback(url, companyDomain)
+      if (rawJobs.length > 0) {
+        console.log(`[ats-discovery] Fallback scraper found ${rawJobs.length} jobs at ${url}`)
+        const mappedJobs = rawJobs.map((j) => mapFallbackJobToJobData(j, companyDomain))
+        return {
+          provider: 'fallback',
+          slug: companyDomain,
+          jobCount: rawJobs.length,
+          mappedJobs,
+        }
+      }
+    } catch {
+      // Fallback scraper never throws, but guard just in case
+    }
+  }
+
+  return null
+}
+
+/**
+ * Map a RawJob from the fallback scraper to MappedJobData for DB upsert.
+ * Exported so job-sync.ts can reuse it for cache-based refresh.
+ */
+export function mapFallbackJobToJobData(rawJob: RawJob, companyDomain: string): MappedJobData {
+  const description = rawJob.rawHtml || `Apply for ${rawJob.title} at ${companyDomain}.`
+
+  return {
+    title: rawJob.title,
+    description,
+    department: rawJob.department || null,
+    location: rawJob.location || null,
+    workType: null,
+    employmentType: 'full_time',
+    applyUrl: rawJob.url || null,
+    companyDomain,
+    postedBy: 'system-job-sync',
+    source: 'fallback',
+    status: 'active',
+    visibility: 'network',
+    externalId: `fallback:${simpleHash(rawJob.title + '|' + companyDomain)}`,
+  }
+}
+
+/** Simple string hash for generating stable external IDs from title+domain. */
+function simpleHash(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash |= 0 // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36)
 }

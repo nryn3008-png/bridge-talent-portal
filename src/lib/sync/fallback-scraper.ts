@@ -118,7 +118,8 @@ function hasPlausibleJobTitles(jobs: RawJob[]): boolean {
 
   let matchCount = 0
   for (const job of jobs) {
-    if (looksLikeJobTitle(job.title)) matchCount++
+    const clean = sanitizeTitle(job.title)
+    if (clean.length > 3 && looksLikeJobTitle(clean)) matchCount++
   }
 
   const ratio = matchCount / jobs.length
@@ -769,6 +770,17 @@ function resolveUrl(href: string, baseOrigin: string): string {
   return `${baseOrigin}/${href}`
 }
 
+// ── Title Sanitization ──────────────────────────────────────────────────────
+
+/** Strip HTML tags, base64 data URIs, and collapse whitespace from a title. */
+function sanitizeTitle(raw: string): string {
+  return raw
+    .replace(/<[^>]*>/g, '')                          // strip HTML tags
+    .replace(/data:[^;]+;base64,[A-Za-z0-9+/=]+/g, '') // strip base64 data URIs
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // ── Deduplication ─────────────────────────────────────────────────────────────
 
 function deduplicateJobs(jobs: RawJob[]): RawJob[] {
@@ -776,15 +788,16 @@ function deduplicateJobs(jobs: RawJob[]): RawJob[] {
   const unique: RawJob[] = []
 
   for (const job of jobs) {
-    if (!job.title || job.title.trim().length === 0) continue
+    const title = sanitizeTitle(job.title ?? '')
+    if (title.length === 0) continue
 
-    const key = normalizeDedupeKey(job.title, job.location)
+    const key = normalizeDedupeKey(title, job.location)
     if (seen.has(key)) continue
 
     seen.add(key)
     unique.push({
       ...job,
-      title: job.title.trim(),
+      title,
       location: job.location?.trim() || null,
       department: job.department?.trim() || null,
     })

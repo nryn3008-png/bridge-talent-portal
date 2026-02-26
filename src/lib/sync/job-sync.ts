@@ -13,7 +13,8 @@ import { fetchWorkdayJobs, mapWorkdayJobToJobData } from './workday-client'
 import { fetchSuccessFactorsJobs, mapSuccessFactorsJobToJobData } from './successfactors-client'
 import { fetchComeetJobs, mapComeetJobToJobData } from './comeet-client'
 import { fetchPaylocityJobs, mapPaylocityJobToJobData } from './paylocity-client'
-import { discoverAtsJobs, type AtsProvider, type MappedJobData } from './ats-discovery'
+import { scrapeWithFallback } from './fallback-scraper'
+import { discoverAtsJobs, mapFallbackJobToJobData, type AtsProvider, type MappedJobData } from './ats-discovery'
 
 interface JobSyncResult {
   created: number
@@ -472,6 +473,26 @@ async function fetchJobsFromProvider(
     case 'paylocity': {
       const jobs = await fetchPaylocityJobs(slug)
       return jobs.map((j) => mapPaylocityJobToJobData(j, companyDomain))
+    }
+    case 'fallback': {
+      // For fallback, slug = companyDomain. Try common careers page URLs.
+      const careersUrls = [
+        `https://${slug}/careers`,
+        `https://${slug}/jobs`,
+        `https://www.${slug}/careers`,
+        `https://www.${slug}/jobs`,
+        `https://${slug}/career`,
+        `https://${slug}/join-us`,
+        `https://www.${slug}/en/career`,
+        `https://www.${slug}/en/careers`,
+      ]
+      for (const url of careersUrls) {
+        const rawJobs = await scrapeWithFallback(url, companyDomain)
+        if (rawJobs.length > 0) {
+          return rawJobs.map((j) => mapFallbackJobToJobData(j, companyDomain))
+        }
+      }
+      return []
     }
     default:
       throw new Error(`Unknown ATS provider: ${provider}`)
