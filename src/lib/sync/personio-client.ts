@@ -23,18 +23,30 @@ export interface PersonioJob {
 export async function fetchPersonioJobs(companySlug: string): Promise<PersonioJob[]> {
   // Try both .personio.de and .personio.com domains
   for (const domain of PERSONIO_DOMAINS) {
+    // Try XML feed first (preferred when enabled by company)
     try {
-      const url = `https://${companySlug}.jobs.${domain}/xml?language=en`
-      const response = await fetch(url, { cache: 'no-store' })
+      const xmlUrl = `https://${companySlug}.jobs.${domain}/xml?language=en`
+      const response = await fetch(xmlUrl, { cache: 'no-store' })
 
-      if (!response.ok) continue
+      if (response.ok) {
+        const text = await response.text()
+        const xmlJobs = parsePersonioXml(text, companySlug, domain)
+        if (xmlJobs.length > 0) return xmlJobs
+      }
+    } catch {
+      // Try HTML fallback
+    }
 
-      const contentType = response.headers.get('content-type') ?? ''
-      if (!contentType.includes('xml') && !contentType.includes('text')) continue
+    // Fall back to HTML careers page (when XML feed is disabled)
+    try {
+      const htmlUrl = `https://${companySlug}.jobs.${domain}/?language=en`
+      const response = await fetch(htmlUrl, { cache: 'no-store' })
 
-      const xml = await response.text()
-      const jobs = parsePersonioXml(xml, companySlug, domain)
-      if (jobs.length > 0) return jobs
+      if (response.ok) {
+        const html = await response.text()
+        const htmlJobs = parsePersonioHtml(html, companySlug, domain)
+        if (htmlJobs.length > 0) return htmlJobs
+      }
     } catch {
       // Try next domain
     }
@@ -88,6 +100,50 @@ function parsePersonioXml(xml: string, companySlug: string, personioDomain: stri
   return jobs
 }
 
+/**
+ * Parse Personio HTML careers page into structured job objects.
+ * Fallback for companies that haven't enabled the XML feed.
+ * Extracts from data-job-position-* attributes on .job-box elements.
+ */
+function parsePersonioHtml(html: string, companySlug: string, personioDomain: string = 'personio.de'): PersonioJob[] {
+  const jobs: PersonioJob[] = []
+  const seenIds = new Set<string>()
+
+  // Match job-box elements with data attributes using regex
+  // Each job box has: data-job-position-id, data-job-position-name, etc.
+  const jobBoxRegex = /data-job-position-id="(\d+)"[\s\S]*?data-job-position-name="([^"]*)"[\s\S]*?data-job-position-department="([^"]*)"[\s\S]*?data-job-position-office="([^"]*)"[\s\S]*?data-job-position-employment="([^"]*)"/g
+  let match: RegExpExecArray | null
+
+  while ((match = jobBoxRegex.exec(html)) !== null) {
+    const id = match[1]
+    if (!id || seenIds.has(id)) continue
+    seenIds.add(id)
+
+    const name = decodeXmlEntities(match[2])
+    const department = match[3] || null
+    const office = match[4] || null
+    const employment = match[5] || null
+
+    if (!name) continue
+
+    jobs.push({
+      id,
+      name,
+      department,
+      office,
+      employmentType: employment,
+      schedule: null,
+      description: `Apply for ${name} at ${companySlug}.`,
+      recruitingCategory: null,
+      occupationCategory: null,
+      createdAt: null,
+      applyUrl: `https://${companySlug}.jobs.${personioDomain}/job/${id}`,
+    })
+  }
+
+  return jobs
+}
+
 function extractTag(xml: string, tag: string): string | null {
   const regex = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`)
   const match = regex.exec(xml)
@@ -130,18 +186,32 @@ export async function tryPersonioDiscovery(
 
   for (const slug of slugs) {
     for (const domain of PERSONIO_DOMAINS) {
+      // Try XML feed first
       try {
-        const url = `https://${slug}.jobs.${domain}/xml?language=en`
-        const response = await fetch(url, { cache: 'no-store' })
+        const xmlUrl = `https://${slug}.jobs.${domain}/xml?language=en`
+        const response = await fetch(xmlUrl, { cache: 'no-store' })
 
         if (response.ok) {
-          const contentType = response.headers.get('content-type') ?? ''
-          if (contentType.includes('xml') || contentType.includes('text')) {
-            const xml = await response.text()
-            const jobs = parsePersonioXml(xml, slug, domain)
-            if (jobs.length > 0) {
-              return { slug, jobs }
-            }
+          const text = await response.text()
+          const xmlJobs = parsePersonioXml(text, slug, domain)
+          if (xmlJobs.length > 0) {
+            return { slug, jobs: xmlJobs }
+          }
+        }
+      } catch {
+        // Try HTML fallback
+      }
+
+      // Fall back to HTML careers page
+      try {
+        const htmlUrl = `https://${slug}.jobs.${domain}/?language=en`
+        const response = await fetch(htmlUrl, { cache: 'no-store' })
+
+        if (response.ok) {
+          const html = await response.text()
+          const htmlJobs = parsePersonioHtml(html, slug, domain)
+          if (htmlJobs.length > 0) {
+            return { slug, jobs: htmlJobs }
           }
         }
       } catch {
