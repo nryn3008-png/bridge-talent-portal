@@ -66,6 +66,43 @@ const CAREERS_LINK_SELECTORS = [
   'a[href*="ashbyhq.com"]', 'a[href*="recruitee.com"]',
 ]
 
+// Signals that indicate a soft 404 / error page (HTTP 200 but "not found" content)
+const SOFT_404_SIGNALS = [
+  '404', 'not found', 'page not found', "page doesn't exist",
+  'page does not exist', 'no longer available', "couldn't find",
+  'could not find', "doesn't exist", 'does not exist',
+]
+
+// ── Soft 404 Detection ──────────────────────────────────────────────────────
+
+/**
+ * Detect "soft 404" pages — HTTP 200 responses that render error/not-found content.
+ * Checks <title>, <h1>/<h2> headings, and short body text for error signals.
+ */
+function isSoft404Page(html: string): boolean {
+  const $ = cheerio.load(html)
+
+  // Check <title> tag
+  const title = $('title').first().text().toLowerCase().trim()
+  if (SOFT_404_SIGNALS.some((s) => title.includes(s))) return true
+
+  // Check <h1> and <h2> headings
+  const headings: string[] = []
+  $('h1, h2').each((_, el) => {
+    headings.push($(el).text().toLowerCase().trim())
+  })
+  if (headings.some((h) => SOFT_404_SIGNALS.some((s) => h.includes(s)))) return true
+
+  // Short body text + error keywords = likely error page
+  const bodyText = $('body').text().replace(/\s+/g, ' ').trim()
+  if (bodyText.length < 500) {
+    const lower = bodyText.toLowerCase()
+    if (SOFT_404_SIGNALS.some((s) => lower.includes(s))) return true
+  }
+
+  return false
+}
+
 // ── Main Entry Point ──────────────────────────────────────────────────────────
 
 /**
@@ -178,6 +215,11 @@ async function scrapeStaticHtml(careersUrl: string): Promise<RawJob[]> {
     const html = await response.text()
     if (html.length > MAX_HTML_SIZE_BYTES) {
       throw new Error(`Page HTML too large (${html.length} chars)`)
+    }
+
+    // Detect soft 404 pages (HTTP 200 but "not found" content)
+    if (isSoft404Page(html)) {
+      throw new Error(`Soft 404 detected on ${careersUrl}`)
     }
 
     return extractJobsFromHtml(html, careersUrl)
@@ -493,6 +535,11 @@ async function scrapeViaDomHeuristic(careersUrl: string): Promise<RawJob[]> {
     const renderedHtml = await page.content() as string
 
     await context.close()
+
+    // Detect soft 404 pages (HTTP 200 but "not found" content)
+    if (isSoft404Page(renderedHtml)) {
+      throw new Error(`Soft 404 detected (rendered) on ${careersUrl}`)
+    }
 
     // Feed rendered HTML through the same cheerio pipeline from Step 1
     // This catches SPA careers pages that render empty server-side HTML
