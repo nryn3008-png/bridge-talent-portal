@@ -73,6 +73,9 @@ const SOFT_404_SIGNALS = [
   'could not find', "doesn't exist", 'does not exist',
 ]
 
+// Minimum fraction of extracted titles that must match job keywords to be considered real
+const MIN_JOB_TITLE_MATCH_RATIO = 0.25
+
 // ── Soft 404 Detection ──────────────────────────────────────────────────────
 
 /**
@@ -103,6 +106,25 @@ function isSoft404Page(html: string): boolean {
   return false
 }
 
+// ── Post-Extraction Validation ──────────────────────────────────────────────
+
+/**
+ * Check that extracted jobs have plausible job titles (not random page elements).
+ * Returns true if at least MIN_JOB_TITLE_MATCH_RATIO of titles match job keywords.
+ * Prevents non-careers pages (e.g. company homepages at /careers) from producing junk.
+ */
+function hasPlausibleJobTitles(jobs: RawJob[]): boolean {
+  if (jobs.length === 0) return false
+
+  let matchCount = 0
+  for (const job of jobs) {
+    if (looksLikeJobTitle(job.title)) matchCount++
+  }
+
+  const ratio = matchCount / jobs.length
+  return ratio >= MIN_JOB_TITLE_MATCH_RATIO
+}
+
 // ── Main Entry Point ──────────────────────────────────────────────────────────
 
 /**
@@ -121,10 +143,15 @@ export async function scrapeWithFallback(
     console.log(`${LOG_PREFIX} Step 1: Static HTML fetch for ${companyName} (${careersUrl})`)
     const jobs = await scrapeStaticHtml(careersUrl)
     if (jobs.length > 0) {
-      console.log(`${LOG_PREFIX} Step 1 succeeded: ${jobs.length} jobs from static HTML`)
-      return deduplicateJobs(jobs)
+      if (!hasPlausibleJobTitles(jobs)) {
+        console.warn(`${LOG_PREFIX} Step 1: Extracted ${jobs.length} items but none look like real job titles — skipping`)
+      } else {
+        console.log(`${LOG_PREFIX} Step 1 succeeded: ${jobs.length} jobs from static HTML`)
+        return deduplicateJobs(jobs)
+      }
+    } else {
+      console.log(`${LOG_PREFIX} Step 1: No jobs found in static HTML`)
     }
-    console.log(`${LOG_PREFIX} Step 1: No jobs found in static HTML`)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     warnings.push(`Step 1 (static HTML) failed: ${msg}`)
@@ -138,10 +165,15 @@ export async function scrapeWithFallback(
       console.log(`${LOG_PREFIX} Step 2: Playwright network interception for ${companyName}`)
       const jobs = await scrapeViaNetworkIntercept(careersUrl)
       if (jobs.length > 0) {
-        console.log(`${LOG_PREFIX} Step 2 succeeded: ${jobs.length} jobs from intercepted API responses`)
-        return deduplicateJobs(jobs)
+        if (!hasPlausibleJobTitles(jobs)) {
+          console.warn(`${LOG_PREFIX} Step 2: Intercepted ${jobs.length} items but none look like real job titles — skipping`)
+        } else {
+          console.log(`${LOG_PREFIX} Step 2 succeeded: ${jobs.length} jobs from intercepted API responses`)
+          return deduplicateJobs(jobs)
+        }
+      } else {
+        console.log(`${LOG_PREFIX} Step 2: No job-like API responses intercepted`)
       }
-      console.log(`${LOG_PREFIX} Step 2: No job-like API responses intercepted`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       warnings.push(`Step 2 (network intercept) failed: ${msg}`)
@@ -153,10 +185,15 @@ export async function scrapeWithFallback(
       console.log(`${LOG_PREFIX} Step 3: Playwright DOM heuristic for ${companyName}`)
       const jobs = await scrapeViaDomHeuristic(careersUrl)
       if (jobs.length > 0) {
-        console.log(`${LOG_PREFIX} Step 3 succeeded: ${jobs.length} jobs from DOM heuristics`)
-        return deduplicateJobs(jobs)
+        if (!hasPlausibleJobTitles(jobs)) {
+          console.warn(`${LOG_PREFIX} Step 3: Extracted ${jobs.length} items but none look like real job titles — skipping`)
+        } else {
+          console.log(`${LOG_PREFIX} Step 3 succeeded: ${jobs.length} jobs from DOM heuristics`)
+          return deduplicateJobs(jobs)
+        }
+      } else {
+        console.log(`${LOG_PREFIX} Step 3: No jobs found via DOM heuristics`)
       }
-      console.log(`${LOG_PREFIX} Step 3: No jobs found via DOM heuristics`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       warnings.push(`Step 3 (DOM heuristic) failed: ${msg}`)
